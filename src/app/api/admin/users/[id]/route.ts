@@ -43,6 +43,25 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     }
 
     const data = parsed.data;
+
+    const isSelfUpdate = id === session.userId;
+    if (isSelfUpdate && data.isActive === false) {
+      return httpError(409, "Нельзя деактивировать самого себя");
+    }
+
+    if (isSelfUpdate && existing.isAdmin && data.isAdmin === false) {
+      const activeAdminsCount = await prisma.user.count({
+        where: {
+          isAdmin: true,
+          isActive: true,
+        },
+      });
+
+      if (activeAdminsCount <= 1) {
+        return httpError(409, "Нельзя снять права админа — вы единственный админ");
+      }
+    }
+
     const before: Record<string, boolean | number> = {};
     const after: Record<string, boolean | number> = {};
 

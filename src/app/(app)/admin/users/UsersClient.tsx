@@ -30,6 +30,15 @@ type ApiError = {
   message?: string;
 };
 
+type MeResponse = {
+  ok: true;
+  me: {
+    id: string;
+    name: string;
+    isAdmin: boolean;
+  };
+};
+
 type CreateForm = {
   name: string;
   password: string;
@@ -55,6 +64,7 @@ async function parseError(response: Response): Promise<string> {
 
 export function UsersClient(): React.JSX.Element {
   const [users, setUsers] = React.useState<User[]>([]);
+  const [currentUserId, setCurrentUserId] = React.useState<string | null>(null);
   const [search, setSearch] = React.useState("");
   const [listError, setListError] = React.useState<string | null>(null);
   const [isListLoading, setIsListLoading] = React.useState(true);
@@ -110,6 +120,32 @@ export function UsersClient(): React.JSX.Element {
     void fetchUsers();
   }, [fetchUsers]);
 
+  React.useEffect(() => {
+    let active = true;
+
+    const fetchMe = async (): Promise<void> => {
+      try {
+        const response = await fetch("/api/me", { cache: "no-store" });
+        if (!response.ok) {
+          return;
+        }
+
+        const data = (await response.json()) as MeResponse;
+        if (active) {
+          setCurrentUserId(data.me.id);
+        }
+      } catch {
+        // no-op
+      }
+    };
+
+    void fetchMe();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
   const filteredUsers = React.useMemo(() => {
     const normalized = search.trim().toLowerCase();
     if (!normalized) {
@@ -162,6 +198,8 @@ export function UsersClient(): React.JSX.Element {
     setEditError(null);
     setEditOpen(true);
   };
+
+  const isEditingSelf = editingUser?.id === currentUserId;
 
   const onEdit = async (event: React.FormEvent<HTMLFormElement>): Promise<void> => {
     event.preventDefault();
@@ -418,6 +456,12 @@ export function UsersClient(): React.JSX.Element {
               />
               Активен
             </label>
+
+            {isEditingSelf ? (
+              <p className="text-xs text-[var(--muted)]">
+                Вы редактируете свою учётную запись. Ограничения безопасности применяются автоматически.
+              </p>
+            ) : null}
 
             {editError ? <ErrorText>{editError}</ErrorText> : null}
 
