@@ -7,12 +7,18 @@ export type OrderStatus =
   | "READY_FOR_PICKUP"
   | "PAID";
 
+/**
+ * Запрещает любые изменения заказа, если он уже оплачен.
+ */
 export function assertOrderMutable(order: { status: OrderStatus }): void {
   if (order.status === "PAID") {
     throw httpError(409, "Заказ оплачен — изменения запрещены");
   }
 }
 
+/**
+ * Валидирует смену статуса с учётом admin-only правил для PAID.
+ */
 export function assertStatusChangeAllowed(params: {
   isAdmin: boolean;
   currentStatus: OrderStatus;
@@ -20,19 +26,11 @@ export function assertStatusChangeAllowed(params: {
 }): void {
   const { isAdmin, currentStatus, newStatus } = params;
 
-  if (currentStatus === "PAID") {
-    if (!isAdmin) {
-      throw httpError(403, "Только админ может менять статус оплаченного заказа");
-    }
-
-    return;
+  if (currentStatus === "PAID" && !isAdmin) {
+    throw httpError(403, "Только админ может менять статус оплаченного заказа");
   }
 
-  if (newStatus === "PAID") {
-    if (!isAdmin) {
-      throw httpError(403, "Только админ может отметить заказ как оплаченный");
-    }
-
-    return;
+  if (newStatus === "PAID" && !isAdmin) {
+    throw httpError(403, "Только админ может отметить заказ как оплаченный");
   }
 }
