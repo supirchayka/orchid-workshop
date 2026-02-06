@@ -7,8 +7,8 @@ export default function manifest(): MetadataRoute.Manifest {
     description: "PWA для учёта заказов мастерской",
     start_url: "/orders",
     display: "standalone",
-    background_color: "#ffffff",
-    theme_color: "#111111",
+    background_color: "#000000",
+    theme_color: "#000000",
     lang: "ru",
     icons: [
       { src: "/icon-192x192.png", sizes: "192x192", type: "image/png" },
