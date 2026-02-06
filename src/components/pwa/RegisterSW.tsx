@@ -6,11 +6,23 @@ export default function RegisterSW() {
   useEffect(() => {
     if (!("serviceWorker" in navigator)) return;
 
-    navigator.serviceWorker
-      .register("/sw.js", { scope: "/" })
-      .catch(() => {
-        // молча, чтобы не раздражать
-      });
+    if (process.env.NODE_ENV !== "production") {
+      navigator.serviceWorker
+        .getRegistrations()
+        .then((registrations) =>
+          Promise.all(registrations.map((registration) => registration.unregister()))
+        )
+        .then(() => caches.keys())
+        .then((keys) => Promise.all(keys.map((key) => caches.delete(key))))
+        .catch(() => {
+          // молча, чтобы не раздражать
+        });
+      return;
+    }
+
+    navigator.serviceWorker.register("/sw.js", { scope: "/" }).catch(() => {
+      // молча, чтобы не раздражать
+    });
   }, []);
 
   return null;
