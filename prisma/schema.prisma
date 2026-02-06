@@ -1,0 +1,218 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum OrderStatus {
+  NEW
+  IN_PROGRESS
+  WAITING_PARTS
+  READY_FOR_PICKUP
+  PAID
+}
+
+enum AuditEntity {
+  ORDER
+  ORDER_WORK
+  ORDER_PART
+  EXPENSE
+  COMMENT
+  USER
+  SERVICE
+  AUTH
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  STATUS_CHANGE
+  LOGIN
+  LOGOUT
+}
+
+model User {
+  id            String   @id @default(cuid())
+  name          String   @unique // логин (имя без фамилии)
+  passwordHash  String
+
+  // доступы
+  isAdmin       Boolean  @default(false)
+  isActive      Boolean  @default(true)
+
+  // комиссия мастера (может быть 0 у админа, но админ может быть исполнителем работ)
+  commissionPct Int      @default(0) // 40 = 40%
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // relations
+  createdOrders  Order[]        @relation("orderCreatedBy")
+  worksPerformed OrderWork[]    @relation("performedBy")
+  comments       OrderComment[]
+  auditLogs      AuditLog[]
+  expenses       Expense[]      @relation("expenseCreatedBy")
+
+  @@index([isAdmin])
+  @@index([isActive])
+}
+
+model Service {
+  id                String   @id @default(cuid())
+  name              String   @unique
+  defaultPriceCents Int
+  isActive          Boolean  @default(true)
+
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  orderWorks        OrderWork[]
+  @@index([isActive])
+}
+
+model Order {
+  id           String      @id @default(cuid())
+  title        String
+  guitarSerial String?
+  description  String?
+
+  status       OrderStatus @default(NEW)
+  paidAt       DateTime?
+
+  // totals (денормализация под быстрый UI + аналитику)
+  laborSubtotalCents Int @default(0) // сумма работ (для дохода/комиссий)
+  partsSubtotalCents Int @default(0) // сумма запчастей (для клиента)
+  invoiceTotalCents  Int @default(0) // labor + parts
+  orderExpensesCents Int @default(0) // сумма расходов, привязанных к заказу (внутренние)
+
+  createdById  String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // relations
+  createdBy    User?         @relation("orderCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  works        OrderWork[]
+  parts        OrderPart[]
+  expenses     Expense[]
+  comments     OrderComment[]
+  auditLogs    AuditLog[]
+
+  @@index([status])
+  @@index([paidAt])
+  @@index([updatedAt])
+  @@index([createdAt])
+}
+
+model OrderWork {
+  id        String   @id @default(cuid())
+  orderId   String
+  serviceId String?  // null = кастомная работа вне каталога
+
+  // snapshot услуги/работы в заказе
+  serviceName    String
+  unitPriceCents Int
+  quantity       Int      @default(1)
+
+  // исполнитель конкретной работы
+  performerId String
+
+  // snapshot комиссии на момент назначения/создания строки
+  commissionPctSnapshot   Int
+  commissionCentsSnapshot Int @default(0) // lineTotal * pct / 100, сохраняем для быстрой аналитики
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // relations
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  service   Service? @relation(fields: [serviceId], references: [id], onDelete: SetNull)
+  performer User     @relation("performedBy", fields: [performerId], references: [id])
+
+  @@index([orderId])
+  @@index([performerId])
+  @@index([createdAt])
+}
+
+model OrderPart {
+  id        String   @id @default(cuid())
+  orderId   String
+
+  name           String
+  unitPriceCents Int
+  quantity       Int      @default(1)
+
+  // опционально на будущее (если захочешь маржу по запчастям)
+  costCents      Int?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+  @@index([createdAt])
+}
+
+model Expense {
+  id          String   @id @default(cuid())
+  orderId     String?  // null = общий расход мастерской
+  title       String
+  amountCents Int
+  expenseDate DateTime @default(now())
+
+  createdById String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  order     Order? @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  createdBy User   @relation("expenseCreatedBy", fields: [createdById], references: [id])
+
+  @@index([orderId])
+  @@index([expenseDate])
+  @@index([createdById])
+}
+
+model OrderComment {
+  id        String   @id @default(cuid())
+  orderId   String
+  authorId  String
+  text      String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  order     Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  author    User  @relation(fields: [authorId], references: [id])
+
+  @@index([orderId, createdAt]) // сортировка по createdAt desc
+  @@index([authorId])
+}
+
+model AuditLog {
+  id        String      @id @default(cuid())
+  actorId   String
+  action    AuditAction
+  entity    AuditEntity
+  entityId  String
+  orderId   String?
+
+  diff      Json?       // before/after или patch (как решим в коде)
+  createdAt DateTime    @default(now())
+
+  actor     User   @relation(fields: [actorId], references: [id])
+  order     Order? @relation(fields: [orderId], references: [id], onDelete: SetNull)
+
+  @@index([createdAt])
+  @@index([orderId, createdAt])
+  @@index([actorId])
+  @@index([entity, action])
+}

@@ -1,26 +1,136 @@
 @import "tailwindcss";
 
+/* iPhone-like dark palette */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  color-scheme: dark;
+
+  --bg: #000000;            /* основной фон */
+  --surface: #1c1c1e;       /* карточки/инпуты */
+  --surface-2: #2c2c2e;     /* hover/акцентная поверхность */
+  --border: rgba(255, 255, 255, 0.10);
+
+  --text: #f2f2f7;          /* основной текст */
+  --muted: #a1a1aa;         /* вторичный текст */
+  --muted-2: #8e8e93;       /* ещё более приглушенный */
+
+  --accent: #0a84ff;        /* iOS blue */
+  --danger: #ff453a;        /* iOS red */
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+@layer base {
+  html, body {
+    height: 100%;
+  }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-sans), system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  * {
+    border-color: var(--border);
+  }
+
+  a {
+    color: var(--accent);
+  }
+
+  ::selection {
+    background: rgba(10, 132, 255, 0.35);
+  }
+
+  /* Базовый стиль для контролов — чтобы "не било" белым */
+  input, textarea, select {
+    background: var(--surface);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    outline: none;
+  }
+
+  input::placeholder, textarea::placeholder {
+    color: var(--muted-2);
+  }
+
+  input:focus, textarea:focus, select:focus {
+    border-color: rgba(10, 132, 255, 0.55);
+    box-shadow: 0 0 0 3px rgba(10, 132, 255, 0.18);
+  }
+
+  button {
+    background: var(--surface-2);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+  }
+
+  button:disabled {
+    opacity: 0.6;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@layer components {
+  .ios-bg {
+    background:
+      radial-gradient(1200px 600px at 20% -10%, rgba(10,132,255,0.18), transparent 55%),
+      radial-gradient(900px 500px at 90% 0%, rgba(255,69,58,0.10), transparent 45%),
+      var(--bg);
+  }
+
+  .ios-card {
+    background: rgba(28, 28, 30, 0.72);
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    box-shadow: 0 18px 60px rgba(0, 0, 0, 0.65);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    border-radius: 18px;
+  }
+
+  .ios-label {
+    color: var(--muted);
+    font-size: 12px;
+    letter-spacing: 0.2px;
+  }
+
+  .ios-input {
+    height: 44px;
+    width: 100%;
+    border-radius: 14px;
+    background: rgba(44, 44, 46, 0.85);
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    padding: 0 14px;
+    color: var(--text);
+  }
+
+  .ios-input:focus {
+    outline: none;
+    border-color: rgba(10, 132, 255, 0.55);
+    box-shadow: 0 0 0 3px rgba(10, 132, 255, 0.18);
+  }
+
+  .ios-button-primary {
+    height: 44px;
+    width: 100%;
+    border-radius: 14px;
+    background: var(--accent);
+    color: #fff;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 12px 28px rgba(10, 132, 255, 0.22);
+    transition: transform 120ms ease, opacity 120ms ease;
+  }
+
+  .ios-button-primary:active {
+    transform: scale(0.99);
+  }
+
+  .ios-muted {
+    color: var(--muted);
+  }
+
+  .ios-danger {
+    color: var(--danger);
+  }
 }
