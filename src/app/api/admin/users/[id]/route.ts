@@ -62,22 +62,18 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
       }
     }
 
-    const before: Record<string, boolean | number> = {};
-    const after: Record<string, boolean | number> = {};
+    const changed: Record<string, { from: boolean | number; to: boolean | number }> = {};
 
     if (data.isAdmin !== undefined && data.isAdmin !== existing.isAdmin) {
-      before.isAdmin = existing.isAdmin;
-      after.isAdmin = data.isAdmin;
+      changed.isAdmin = { from: existing.isAdmin, to: data.isAdmin };
     }
 
     if (data.isActive !== undefined && data.isActive !== existing.isActive) {
-      before.isActive = existing.isActive;
-      after.isActive = data.isActive;
+      changed.isActive = { from: existing.isActive, to: data.isActive };
     }
 
     if (data.commissionPct !== undefined && data.commissionPct !== existing.commissionPct) {
-      before.commissionPct = existing.commissionPct;
-      after.commissionPct = data.commissionPct;
+      changed.commissionPct = { from: existing.commissionPct, to: data.commissionPct };
     }
 
     const user = await prisma.user.update({
@@ -92,8 +88,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
       entity: AuditEntity.USER,
       entityId: id,
       diff: {
-        before,
-        after,
+        changed,
       } as Prisma.InputJsonValue,
     });
 
