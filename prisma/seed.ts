@@ -3,11 +3,7 @@ import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import { Pool } from "pg";
 
-const connectionString = process.env.DATABASE_URL;
-
-if (!connectionString) {
-  throw new Error("DATABASE_URL is not set. Add it to your environment before running seed.");
-}
+const connectionString = "postgresql://postgres:pgadmin@localhost:5432/orchid_pwa?schema=public";
 
 const pool = new Pool({ connectionString });
 const adapter = new PrismaPg(pool);
