@@ -2,7 +2,7 @@ import * as React from "react";
 
 import { cn } from "@/lib/cn";
 
-type BadgeVariant = "default" | "info" | "success" | "warning" | "danger";
+export type BadgeVariant = "default" | "info" | "success" | "warning" | "danger";
 
 export interface BadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
   variant?: BadgeVariant;
