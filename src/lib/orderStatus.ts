@@ -1,34 +1,25 @@
 import { OrderStatus } from "@prisma/client";
 
-export type OrderStatusMeta = {
-  label: string;
-  badgeVariant: "default" | "info" | "success" | "warning" | "danger";
+import type { BadgeVariant } from "@/components/ui/Badge";
+
+export const OrderStatusLabel: Record<OrderStatus, string> = {
+  NEW: "Новый",
+  IN_PROGRESS: "В работе",
+  WAITING_PARTS: "Ожидает запчасти",
+  READY_FOR_PICKUP: "Готов к выдаче",
+  PAID: "Оплачен",
 };
 
-export const orderStatusMeta: Record<OrderStatus, OrderStatusMeta> = {
-  NEW: {
-    label: "Новый",
-    badgeVariant: "info",
-  },
-  IN_PROGRESS: {
-    label: "В работе",
-    badgeVariant: "warning",
-  },
-  WAITING_PARTS: {
-    label: "Ожидает запчасти",
-    badgeVariant: "default",
-  },
-  READY_FOR_PICKUP: {
-    label: "Готов к выдаче",
-    badgeVariant: "success",
-  },
-  PAID: {
-    label: "Оплачен",
-    badgeVariant: "success",
-  },
+export const OrderStatusBadgeVariant: Record<OrderStatus, BadgeVariant> = {
+  NEW: "info",
+  IN_PROGRESS: "default",
+  WAITING_PARTS: "warning",
+  READY_FOR_PICKUP: "success",
+  PAID: "success",
 };
 
-export const orderStatusOptions = (Object.keys(orderStatusMeta) as OrderStatus[]).map((status) => ({
+export const orderStatusOptions = (Object.keys(OrderStatusLabel) as OrderStatus[]).map((status) => ({
   value: status,
-  ...orderStatusMeta[status],
+  label: OrderStatusLabel[status],
+  badgeVariant: OrderStatusBadgeVariant[status],
 }));

@@ -11,7 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { ErrorText, Input, Label, TextArea } from "@/components/ui/Input";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/Sheet";
 import { formatRub } from "@/lib/money";
-import { orderStatusMeta, orderStatusOptions } from "@/lib/orderStatus";
+import { OrderStatusBadgeVariant, OrderStatusLabel, orderStatusOptions } from "@/lib/orderStatus";
 
 type OrderListItem = {
   id: string;
@@ -288,7 +288,6 @@ export function OrdersClient(): React.JSX.Element {
 
       <div className="grid gap-3">
         {orders.map((order) => {
-          const status = orderStatusMeta[order.status];
           const comment = order.lastComment
             ? `${order.lastComment.authorName}: ${order.lastComment.text.replace(/\s+/gu, " ").trim()}`
             : null;
@@ -303,7 +302,7 @@ export function OrdersClient(): React.JSX.Element {
                       <p className="mt-1 truncate text-xs text-[var(--muted)]">S/N: {order.guitarSerial}</p>
                     ) : null}
                   </div>
-                  <Badge variant={status.badgeVariant}>{status.label}</Badge>
+                  <Badge variant={OrderStatusBadgeVariant[order.status]}>{OrderStatusLabel[order.status]}</Badge>
                 </CardHeader>
 
                 <CardContent className="space-y-1 text-sm">
