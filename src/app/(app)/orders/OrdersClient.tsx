@@ -2,12 +2,13 @@
 
 import { OrderStatus } from "@prisma/client";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import * as React from "react";
 
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
-import { ErrorText, Input, Label } from "@/components/ui/Input";
+import { ErrorText, Input, Label, TextArea } from "@/components/ui/Input";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/Sheet";
 import { formatRub } from "@/lib/money";
 import { orderStatusMeta, orderStatusOptions } from "@/lib/orderStatus";
@@ -50,12 +51,21 @@ function formatDate(value: string): string {
 }
 
 export function OrdersClient(): React.JSX.Element {
+  const router = useRouter();
+
   const [search, setSearch] = React.useState("");
   const [statuses, setStatuses] = React.useState<OrderStatus[]>([]);
   const [mineOnly, setMineOnly] = React.useState(false);
   const [orders, setOrders] = React.useState<OrderListItem[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
+
+  const [createOpen, setCreateOpen] = React.useState(false);
+  const [title, setTitle] = React.useState("");
+  const [guitarSerial, setGuitarSerial] = React.useState("");
+  const [description, setDescription] = React.useState("");
+  const [createLoading, setCreateLoading] = React.useState(false);
+  const [createError, setCreateError] = React.useState<string | null>(null);
 
   const hasFilters = search.trim().length > 0 || statuses.length > 0 || mineOnly;
 
@@ -99,9 +109,104 @@ export function OrdersClient(): React.JSX.Element {
     setStatuses((prev) => (prev.includes(status) ? prev.filter((item) => item !== status) : [...prev, status]));
   };
 
+  const onCreateOrder = async (event: React.FormEvent<HTMLFormElement>): Promise<void> => {
+    event.preventDefault();
+
+    const cleanTitle = title.trim();
+    if (!cleanTitle) {
+      setCreateError("Введите название заказа");
+      return;
+    }
+
+    setCreateError(null);
+    setCreateLoading(true);
+
+    try {
+      const response = await fetch("/api/orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: cleanTitle,
+          guitarSerial,
+          description,
+        }),
+      });
+
+      if (!response.ok) {
+        setCreateError(await parseError(response));
+        return;
+      }
+
+      const data = (await response.json()) as { ok: true; order: { id: string } };
+
+      setCreateOpen(false);
+      setTitle("");
+      setGuitarSerial("");
+      setDescription("");
+      router.push(`/orders/${data.order.id}`);
+    } catch {
+      setCreateError("Ошибка сети. Попробуйте ещё раз");
+    } finally {
+      setCreateLoading(false);
+    }
+  };
+
   return (
     <section className="space-y-4">
-      <h1 className="text-2xl font-semibold tracking-tight">Заказы</h1>
+      <div className="flex items-center justify-between gap-2">
+        <h1 className="text-2xl font-semibold tracking-tight">Заказы</h1>
+
+        <Sheet open={createOpen} onOpenChange={setCreateOpen}>
+          <SheetTrigger asChild>
+            <Button size="sm">Новый заказ</Button>
+          </SheetTrigger>
+          <SheetContent side="bottom">
+            <SheetHeader>
+              <SheetTitle>Новый заказ</SheetTitle>
+            </SheetHeader>
+
+            <form className="space-y-3" onSubmit={(event) => void onCreateOrder(event)}>
+              <div className="space-y-1">
+                <Label htmlFor="create-order-title">Название</Label>
+                <Input
+                  id="create-order-title"
+                  value={title}
+                  onChange={(event) => setTitle(event.target.value)}
+                  placeholder="Например: Fender Stratocaster"
+                  required
+                />
+              </div>
+
+              <div className="space-y-1">
+                <Label htmlFor="create-order-serial">Серийный номер</Label>
+                <Input
+                  id="create-order-serial"
+                  value={guitarSerial}
+                  onChange={(event) => setGuitarSerial(event.target.value)}
+                  placeholder="Опционально"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <Label htmlFor="create-order-description">Описание</Label>
+                <TextArea
+                  id="create-order-description"
+                  value={description}
+                  onChange={(event) => setDescription(event.target.value)}
+                  placeholder="Опционально"
+                  rows={5}
+                />
+              </div>
+
+              {createError ? <ErrorText>{createError}</ErrorText> : null}
+
+              <Button type="submit" className="w-full" loading={createLoading}>
+                Создать заказ
+              </Button>
+            </form>
+          </SheetContent>
+        </Sheet>
+      </div>
 
       <Card className="p-4 sm:p-5">
         <CardHeader className="mb-3">
