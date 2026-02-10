@@ -21,6 +21,7 @@ const querySchema = z
     to: dateSchema.optional(),
     bucket: z.enum(["day", "week", "month"]).default("month"),
   })
+  .strict()
   .refine((value) => !value.from || !value.to || value.from.getTime() <= value.to.getTime(), {
     message: "Параметр from не может быть больше to",
     path: ["from"],
@@ -67,11 +68,13 @@ export async function GET(req: Request) {
     const session = await requireSession();
     const { searchParams } = new URL(req.url);
 
-    const parsedQuery = querySchema.safeParse({
-      from: searchParams.get("from") ?? undefined,
-      to: searchParams.get("to") ?? undefined,
-      bucket: searchParams.get("bucket") ?? undefined,
-    });
+    const rawQuery = Object.fromEntries(searchParams.entries());
+
+    if ("performerId" in rawQuery) {
+      return httpError(400, "Параметр performerId недоступен");
+    }
+
+    const parsedQuery = querySchema.safeParse(rawQuery);
 
     if (!parsedQuery.success) {
       return httpError(400, "Неверные параметры запроса", { issues: parsedQuery.error.issues });
@@ -90,6 +93,7 @@ export async function GET(req: Request) {
         order: {
           status: OrderStatus.PAID,
           paidAt: {
+            not: null,
             gte: from,
             lte: to,
           },

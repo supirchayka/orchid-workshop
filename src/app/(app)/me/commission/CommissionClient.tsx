@@ -231,7 +231,10 @@ export function CommissionClient(): React.JSX.Element {
 
   return (
     <section className="space-y-4">
-      <h1 className="text-2xl font-semibold tracking-tight">Моя комиссия</h1>
+      <div className="space-y-1">
+        <h1 className="text-2xl font-semibold tracking-tight">Моя комиссия</h1>
+        <p className="text-sm text-[var(--muted)]">Комиссия считается только по оплаченным заказам.</p>
+      </div>
 
       <Card>
         <CardHeader>
