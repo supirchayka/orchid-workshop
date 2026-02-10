@@ -6,7 +6,7 @@ import * as React from "react";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
-import { ErrorText, Input, Label } from "@/components/ui/Input";
+import { ErrorText, Input, Label, TextArea } from "@/components/ui/Input";
 import { Sheet, SheetContent, SheetFooter, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/Sheet";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/Tabs";
 import { formatRub, parseRubToCents } from "@/lib/money";
@@ -217,6 +217,9 @@ export function OrderDetailsClient({ orderId }: { orderId: string }): React.JSX.
   const [editExpenseLoading, setEditExpenseLoading] = React.useState(false);
 
   const [deleteExpenseId, setDeleteExpenseId] = React.useState<string | null>(null);
+  const [newCommentText, setNewCommentText] = React.useState("");
+  const [createCommentError, setCreateCommentError] = React.useState<string | null>(null);
+  const [createCommentLoading, setCreateCommentLoading] = React.useState(false);
 
   const loadOrder = React.useCallback(async (): Promise<OrderDetailsResponse["order"]> => {
     const orderResponse = await fetch(`/api/orders/${orderId}`, { cache: "no-store" });
@@ -790,6 +793,42 @@ export function OrderDetailsClient({ orderId }: { orderId: string }): React.JSX.
     }
   };
 
+  const onCreateComment = async (event: React.FormEvent<HTMLFormElement>): Promise<void> => {
+    event.preventDefault();
+
+    if (!data) return;
+
+    const text = newCommentText.trim();
+
+    if (!text) {
+      setCreateCommentError("Введите комментарий");
+      return;
+    }
+
+    setCreateCommentLoading(true);
+    setCreateCommentError(null);
+
+    try {
+      const response = await fetch(`/api/orders/${data.id}/comments`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text }),
+      });
+
+      if (!response.ok) {
+        setCreateCommentError(await parseError(response));
+        return;
+      }
+
+      setNewCommentText("");
+      await refreshOrder();
+    } catch {
+      setCreateCommentError("Ошибка сети. Попробуйте ещё раз");
+    } finally {
+      setCreateCommentLoading(false);
+    }
+  };
+
 
   if (loading) {
     return (
@@ -1243,7 +1282,27 @@ export function OrderDetailsClient({ orderId }: { orderId: string }): React.JSX.
 
         <TabsContent value="comments">
           <Card className="space-y-3">
-            <p className="text-xs text-[var(--muted-2)]">Режим: {isLocked ? "только чтение (оплачено)" : "только чтение"}</p>
+            <form className="space-y-2 rounded-[14px] border border-white/10 bg-[var(--surface)] p-3" onSubmit={onCreateComment}>
+              <Label htmlFor="new-comment">Комментарий</Label>
+              <TextArea
+                id="new-comment"
+                placeholder="Напишите комментарий по заказу"
+                value={newCommentText}
+                onChange={(event) => setNewCommentText(event.target.value)}
+                maxLength={2000}
+                disabled={isLocked || createCommentLoading}
+              />
+
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-xs text-[var(--muted-2)]">{isLocked ? "Оплаченный заказ: добавление отключено" : "Новые комментарии сверху"}</p>
+                <Button type="submit" size="sm" disabled={isLocked} loading={createCommentLoading}>
+                  Добавить
+                </Button>
+              </div>
+
+              {createCommentError ? <ErrorText>{createCommentError}</ErrorText> : null}
+            </form>
+
             {data.comments.length === 0 ? (
               <p className="text-sm text-[var(--muted)]">Нет комментариев</p>
             ) : (
