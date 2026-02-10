@@ -37,6 +37,8 @@ type ByMasterRow = {
   commissionCents: bigint | number | null;
 };
 
+type Bucket = "day" | "week" | "month";
+
 function parseDateOnlyUtc(value: string): Date {
   return new Date(`${value}T00:00:00.000Z`);
 }
@@ -57,6 +59,51 @@ function startOfCurrentDayUtc(): Date {
 
 function addDays(value: Date, days: number): Date {
   return new Date(value.getTime() + days * MS_IN_DAY);
+}
+
+function addMonths(value: Date, months: number): Date {
+  return new Date(Date.UTC(value.getUTCFullYear(), value.getUTCMonth() + months, 1));
+}
+
+function startOfBucketUtc(value: Date, bucket: Bucket): Date {
+  if (bucket === "day") {
+    return new Date(Date.UTC(value.getUTCFullYear(), value.getUTCMonth(), value.getUTCDate()));
+  }
+
+  if (bucket === "month") {
+    return new Date(Date.UTC(value.getUTCFullYear(), value.getUTCMonth(), 1));
+  }
+
+  const dayStart = new Date(Date.UTC(value.getUTCFullYear(), value.getUTCMonth(), value.getUTCDate()));
+  const dayOfWeek = dayStart.getUTCDay();
+  const offsetToMonday = (dayOfWeek + 6) % 7;
+  return addDays(dayStart, -offsetToMonday);
+}
+
+function addBucket(value: Date, bucket: Bucket): Date {
+  if (bucket === "day") {
+    return addDays(value, 1);
+  }
+
+  if (bucket === "week") {
+    return addDays(value, 7);
+  }
+
+  return addMonths(value, 1);
+}
+
+function buildBucketTimeline(fromDate: Date, toDate: Date, bucket: Bucket): string[] {
+  const start = startOfBucketUtc(fromDate, bucket);
+  const end = startOfBucketUtc(toDate, bucket);
+  const points: string[] = [];
+
+  let cursor = start;
+  while (cursor.getTime() <= end.getTime()) {
+    points.push(cursor.toISOString());
+    cursor = addBucket(cursor, bucket);
+  }
+
+  return points;
 }
 
 function toCents(value: bigint | number | null | undefined): number {
@@ -183,9 +230,7 @@ export async function GET(req: Request) {
       expensesByBucket.set(new Date(row.bucketStart).toISOString(), toCents(row.cents));
     }
 
-    const bucketStarts = [...new Set([...laborByBucket.keys(), ...commissionsByBucket.keys(), ...expensesByBucket.keys()])].sort(
-      (a, b) => new Date(a).getTime() - new Date(b).getTime(),
-    );
+    const bucketStarts = buildBucketTimeline(fromDate, toDate, bucket);
 
     const series = bucketStarts.map((bucketStart) => {
       const labor = laborByBucket.get(bucketStart) ?? 0;
