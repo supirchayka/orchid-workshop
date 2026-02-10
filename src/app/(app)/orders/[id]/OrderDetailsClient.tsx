@@ -4,10 +4,13 @@ import { OrderStatus } from "@prisma/client";
 import * as React from "react";
 
 import { Badge } from "@/components/ui/Badge";
+import { Button } from "@/components/ui/Button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
+import { ErrorText } from "@/components/ui/Input";
+import { Sheet, SheetContent, SheetFooter, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/Sheet";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/Tabs";
 import { formatRub } from "@/lib/money";
-import { OrderStatusBadgeVariant, OrderStatusLabel } from "@/lib/orderStatus";
+import { OrderStatusBadgeVariant, OrderStatusLabel, orderStatusOptions } from "@/lib/orderStatus";
 
 type ApiError = {
   ok?: false;
@@ -107,6 +110,20 @@ export function OrderDetailsClient({ orderId }: { orderId: string }): React.JSX.
   const [me, setMe] = React.useState<MeResponse["me"] | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
+  const [statusSheetOpen, setStatusSheetOpen] = React.useState(false);
+  const [nextStatus, setNextStatus] = React.useState<OrderStatus | null>(null);
+  const [statusError, setStatusError] = React.useState<string | null>(null);
+  const [statusLoading, setStatusLoading] = React.useState(false);
+
+  const loadOrder = React.useCallback(async (): Promise<OrderDetailsResponse["order"]> => {
+    const orderResponse = await fetch(`/api/orders/${orderId}`, { cache: "no-store" });
+    if (!orderResponse.ok) {
+      throw new Error(await parseError(orderResponse));
+    }
+
+    const orderPayload = (await orderResponse.json()) as OrderDetailsResponse;
+    return orderPayload.order;
+  }, [orderId]);
 
   React.useEffect(() => {
     let active = true;
@@ -116,18 +133,7 @@ export function OrderDetailsClient({ orderId }: { orderId: string }): React.JSX.
       setError(null);
 
       try {
-        const [orderResponse, meResponse] = await Promise.all([
-          fetch(`/api/orders/${orderId}`, { cache: "no-store" }),
-          fetch("/api/me", { cache: "no-store" }),
-        ]);
-
-        if (!orderResponse.ok) {
-          if (!active) {
-            return;
-          }
-          setError(await parseError(orderResponse));
-          return;
-        }
+        const [order, meResponse] = await Promise.all([loadOrder(), fetch("/api/me", { cache: "no-store" })]);
 
         if (!meResponse.ok) {
           if (!active) {
@@ -137,14 +143,13 @@ export function OrderDetailsClient({ orderId }: { orderId: string }): React.JSX.
           return;
         }
 
-        const orderPayload = (await orderResponse.json()) as OrderDetailsResponse;
         const mePayload = (await meResponse.json()) as MeResponse;
 
         if (!active) {
           return;
         }
 
-        setData(orderPayload.order);
+        setData(order);
         setMe(mePayload.me);
       } catch {
         if (!active) {
@@ -163,7 +168,7 @@ export function OrderDetailsClient({ orderId }: { orderId: string }): React.JSX.
     return () => {
       active = false;
     };
-  }, [orderId]);
+  }, [loadOrder]);
 
   if (loading) {
     return (
@@ -190,6 +195,38 @@ export function OrderDetailsClient({ orderId }: { orderId: string }): React.JSX.
   }
 
   const isLocked = data.status === OrderStatus.PAID;
+  const cannotChangeStatus = isLocked && !me.isAdmin;
+
+  const onChangeStatus = async (): Promise<void> => {
+    if (!nextStatus || nextStatus === data.status) {
+      return;
+    }
+
+    setStatusError(null);
+    setStatusLoading(true);
+
+    try {
+      const response = await fetch(`/api/orders/${orderId}/status`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: nextStatus }),
+      });
+
+      if (!response.ok) {
+        setStatusError(await parseError(response));
+        return;
+      }
+
+      const refreshedOrder = await loadOrder();
+      setData(refreshedOrder);
+      setStatusSheetOpen(false);
+      setNextStatus(refreshedOrder.status);
+    } catch {
+      setStatusError("Ошибка сети. Попробуйте ещё раз");
+    } finally {
+      setStatusLoading(false);
+    }
+  };
 
   return (
     <section className="space-y-4">
@@ -199,7 +236,71 @@ export function OrderDetailsClient({ orderId }: { orderId: string }): React.JSX.
             <CardTitle className="text-xl">{data.title}</CardTitle>
             {data.guitarSerial ? <p className="mt-1 text-sm text-[var(--muted)]">S/N: {data.guitarSerial}</p> : null}
           </div>
-          <Badge variant={OrderStatusBadgeVariant[data.status]}>{OrderStatusLabel[data.status]}</Badge>
+          <div className="flex flex-col items-end gap-2">
+            <Badge variant={OrderStatusBadgeVariant[data.status]}>{OrderStatusLabel[data.status]}</Badge>
+
+            <Sheet
+              open={statusSheetOpen}
+              onOpenChange={(open) => {
+                setStatusSheetOpen(open);
+                if (open) {
+                  setNextStatus(data.status);
+                  setStatusError(null);
+                }
+              }}
+            >
+              <SheetTrigger asChild>
+                <Button variant="secondary" size="sm" disabled={cannotChangeStatus} title={cannotChangeStatus ? "Только админ может менять статус оплаченного заказа" : undefined}>
+                  Изменить статус
+                </Button>
+              </SheetTrigger>
+
+              <SheetContent side="bottom">
+                <SheetHeader>
+                  <SheetTitle>Изменить статус</SheetTitle>
+                </SheetHeader>
+
+                <div className="space-y-2">
+                  {orderStatusOptions.map((statusOption) => {
+                    const disabledOption = cannotChangeStatus || (!me.isAdmin && statusOption.value === OrderStatus.PAID);
+
+                    return (
+                      <label
+                        key={statusOption.value}
+                        className="flex items-center justify-between rounded-[14px] border border-white/10 bg-[var(--surface)] px-3 py-2"
+                      >
+                        <div>
+                          <p className="text-sm text-[var(--text)]">{statusOption.label}</p>
+                          {!me.isAdmin && statusOption.value === OrderStatus.PAID ? (
+                            <p className="text-xs text-[var(--muted-2)]">Только для админа</p>
+                          ) : null}
+                        </div>
+                        <input
+                          type="radio"
+                          name="next-status"
+                          checked={nextStatus === statusOption.value}
+                          onChange={() => setNextStatus(statusOption.value)}
+                          disabled={disabledOption}
+                          className="h-4 w-4 accent-[var(--accent)]"
+                        />
+                      </label>
+                    );
+                  })}
+                </div>
+
+                {statusError ? <ErrorText>{statusError}</ErrorText> : null}
+
+                <SheetFooter>
+                  <Button variant="ghost" onClick={() => setStatusSheetOpen(false)} disabled={statusLoading}>
+                    Отмена
+                  </Button>
+                  <Button onClick={() => void onChangeStatus()} loading={statusLoading} disabled={!nextStatus || nextStatus === data.status}>
+                    Сохранить
+                  </Button>
+                </SheetFooter>
+              </SheetContent>
+            </Sheet>
+          </div>
         </CardHeader>
 
         <CardContent className="space-y-1 text-sm">
