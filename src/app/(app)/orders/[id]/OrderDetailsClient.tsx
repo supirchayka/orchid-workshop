@@ -106,6 +106,14 @@ type OrderDetailsResponse = {
 
 type WorkMode = "from-service" | "custom";
 
+type AuditChanged = Record<string, { from: unknown; to: unknown }>;
+
+type AuditDiff = {
+  created?: Record<string, unknown>;
+  changed?: AuditChanged;
+  deleted?: Record<string, unknown>;
+};
+
 function formatDateTime(value: string | null): string {
   if (!value) return "—";
 
@@ -120,6 +128,14 @@ function formatDateTime(value: string | null): string {
 
 function centsToRubInput(cents: number): string {
   return (cents / 100).toFixed(2);
+}
+
+function asAuditDiff(value: unknown): AuditDiff | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return null;
+  }
+
+  return value as AuditDiff;
 }
 
 function rubInputToCents(value: string): number | null {
@@ -655,6 +671,10 @@ export function OrderDetailsClient({ orderId }: { orderId: string }): React.JSX.
               </Sheet>
             </div>
 
+            <div className="rounded-[14px] border border-white/10 bg-[var(--surface)] px-3 py-2 text-sm">
+              <p className="text-[var(--muted)]">Итого по работам: {formatRub(data.laborSubtotalCents)}</p>
+            </div>
+
             {data.works.length === 0 ? (
               <p className="text-sm text-[var(--muted)]">Нет работ</p>
             ) : (
@@ -769,7 +789,36 @@ export function OrderDetailsClient({ orderId }: { orderId: string }): React.JSX.
                     </p>
                     <p className="text-xs text-[var(--muted-2)]">{formatDateTime(entry.createdAt)}</p>
                   </div>
-                  <pre className="mt-2 overflow-x-auto text-xs text-[var(--muted)]">{JSON.stringify(entry.diff ?? {}, null, 2)}</pre>
+
+                  {(() => {
+                    const diff = asAuditDiff(entry.diff);
+
+                    if (!diff) {
+                      return <p className="mt-2 text-xs text-[var(--muted)]">Нет diff</p>;
+                    }
+
+                    if (diff.changed && Object.keys(diff.changed).length > 0) {
+                      return (
+                        <div className="mt-2 space-y-1 text-xs text-[var(--muted)]">
+                          {Object.entries(diff.changed).map(([field, value]) => (
+                            <p key={field}>
+                              {field}: {String(value.from ?? "—")} → {String(value.to ?? "—")}
+                            </p>
+                          ))}
+                        </div>
+                      );
+                    }
+
+                    if (diff.created && Object.keys(diff.created).length > 0) {
+                      return <p className="mt-2 text-xs text-[var(--muted)]">Создано: {JSON.stringify(diff.created)}</p>;
+                    }
+
+                    if (diff.deleted && Object.keys(diff.deleted).length > 0) {
+                      return <p className="mt-2 text-xs text-[var(--muted)]">Удалено: {JSON.stringify(diff.deleted)}</p>;
+                    }
+
+                    return <pre className="mt-2 overflow-x-auto text-xs text-[var(--muted)]">{JSON.stringify(diff, null, 2)}</pre>;
+                  })()}
                 </div>
               ))
             )}
