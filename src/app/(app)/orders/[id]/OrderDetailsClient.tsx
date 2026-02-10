@@ -1,12 +1,12 @@
 "use client";
 
-import { OrderStatus } from "@prisma/client";
+import { AuditAction, AuditEntity, OrderStatus } from "@prisma/client";
 import * as React from "react";
 
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
-import { ErrorText, Input, Label } from "@/components/ui/Input";
+import { ErrorText, Input, Label, TextArea } from "@/components/ui/Input";
 import { Sheet, SheetContent, SheetFooter, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/Sheet";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/Tabs";
 import { formatRub, parseRubToCents } from "@/lib/money";
@@ -118,6 +118,49 @@ type AuditDiff = {
   deleted?: Record<string, unknown>;
 };
 
+type AuditEntry = {
+  id: string;
+  actorId: string;
+  action: AuditAction;
+  entity: AuditEntity;
+  entityId: string;
+  orderId: string | null;
+  diff: unknown;
+  createdAt: string;
+  actor: {
+    id: string;
+    name: string;
+  };
+};
+
+type AuditListResponse = {
+  ok: true;
+  audit: AuditEntry[];
+};
+
+type AuditEntityFilter = "ALL" | AuditEntity;
+type AuditActionFilter = "ALL" | AuditAction;
+
+const auditEntityLabel: Record<AuditEntity, string> = {
+  ORDER: "заказ",
+  ORDER_WORK: "работу",
+  ORDER_PART: "запчасть",
+  EXPENSE: "расход",
+  COMMENT: "комментарий",
+  USER: "пользователя",
+  SERVICE: "услугу",
+  AUTH: "авторизацию",
+};
+
+const auditActionLabel: Record<AuditAction, string> = {
+  CREATE: "создал",
+  UPDATE: "изменил",
+  DELETE: "удалил",
+  STATUS_CHANGE: "сменил статус",
+  LOGIN: "выполнил вход",
+  LOGOUT: "выполнил выход",
+};
+
 function formatDateTime(value: string | null): string {
   if (!value) return "—";
 
@@ -140,6 +183,42 @@ function asAuditDiff(value: unknown): AuditDiff | null {
   }
 
   return value as AuditDiff;
+}
+
+function formatAuditValue(value: unknown): string {
+  if (value === null || value === undefined) return "—";
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+
+  return JSON.stringify(value);
+}
+
+function getCreatedDetails(diff: AuditDiff): Array<{ key: string; value: string }> {
+  if (!diff.created) return [];
+
+  return Object.entries(diff.created)
+    .filter(([key]) => key !== "updatedAt" && key !== "createdAt")
+    .map(([key, value]) => ({ key, value: formatAuditValue(value) }));
+}
+
+function getChangedDetails(diff: AuditDiff): Array<{ key: string; from: string; to: string }> {
+  if (!diff.changed) return [];
+
+  return Object.entries(diff.changed).map(([key, value]) => ({
+    key,
+    from: formatAuditValue(value.from),
+    to: formatAuditValue(value.to),
+  }));
+}
+
+function getDeletedDetails(diff: AuditDiff): string {
+  if (!diff.deleted) return "—";
+
+  if (typeof diff.deleted.id === "string") {
+    return diff.deleted.id;
+  }
+
+  return formatAuditValue(diff.deleted.id);
 }
 
 async function parseError(response: Response): Promise<string> {
@@ -217,6 +296,14 @@ export function OrderDetailsClient({ orderId }: { orderId: string }): React.JSX.
   const [editExpenseLoading, setEditExpenseLoading] = React.useState(false);
 
   const [deleteExpenseId, setDeleteExpenseId] = React.useState<string | null>(null);
+  const [newCommentText, setNewCommentText] = React.useState("");
+  const [createCommentError, setCreateCommentError] = React.useState<string | null>(null);
+  const [createCommentLoading, setCreateCommentLoading] = React.useState(false);
+  const [audit, setAudit] = React.useState<AuditEntry[]>([]);
+  const [auditLoading, setAuditLoading] = React.useState(false);
+  const [auditError, setAuditError] = React.useState<string | null>(null);
+  const [auditEntityFilter, setAuditEntityFilter] = React.useState<AuditEntityFilter>("ALL");
+  const [auditActionFilter, setAuditActionFilter] = React.useState<AuditActionFilter>("ALL");
 
   const loadOrder = React.useCallback(async (): Promise<OrderDetailsResponse["order"]> => {
     const orderResponse = await fetch(`/api/orders/${orderId}`, { cache: "no-store" });
@@ -233,6 +320,36 @@ export function OrderDetailsClient({ orderId }: { orderId: string }): React.JSX.
     setData(refreshedOrder);
     return refreshedOrder;
   }, [loadOrder]);
+
+  const loadAudit = React.useCallback(async () => {
+    setAuditLoading(true);
+    setAuditError(null);
+
+    try {
+      const params = new URLSearchParams({ limit: "200" });
+
+      if (auditEntityFilter !== "ALL") {
+        params.set("entity", auditEntityFilter);
+      }
+
+      if (auditActionFilter !== "ALL") {
+        params.set("action", auditActionFilter);
+      }
+
+      const response = await fetch(`/api/orders/${orderId}/audit?${params.toString()}`, { cache: "no-store" });
+      if (!response.ok) {
+        setAuditError(await parseError(response));
+        return;
+      }
+
+      const payload = (await response.json()) as AuditListResponse;
+      setAudit(payload.audit);
+    } catch {
+      setAuditError("Ошибка сети. Попробуйте ещё раз");
+    } finally {
+      setAuditLoading(false);
+    }
+  }, [auditActionFilter, auditEntityFilter, orderId]);
 
   React.useEffect(() => {
     let active = true;
@@ -281,6 +398,10 @@ export function OrderDetailsClient({ orderId }: { orderId: string }): React.JSX.
       active = false;
     };
   }, [loadOrder]);
+
+  React.useEffect(() => {
+    void loadAudit();
+  }, [loadAudit]);
 
   const resetCreateForm = React.useCallback(() => {
     setCreateMode("from-service");
@@ -790,6 +911,42 @@ export function OrderDetailsClient({ orderId }: { orderId: string }): React.JSX.
     }
   };
 
+  const onCreateComment = async (event: React.FormEvent<HTMLFormElement>): Promise<void> => {
+    event.preventDefault();
+
+    if (!data) return;
+
+    const text = newCommentText.trim();
+
+    if (!text) {
+      setCreateCommentError("Введите комментарий");
+      return;
+    }
+
+    setCreateCommentLoading(true);
+    setCreateCommentError(null);
+
+    try {
+      const response = await fetch(`/api/orders/${data.id}/comments`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text }),
+      });
+
+      if (!response.ok) {
+        setCreateCommentError(await parseError(response));
+        return;
+      }
+
+      setNewCommentText("");
+      await refreshOrder();
+    } catch {
+      setCreateCommentError("Ошибка сети. Попробуйте ещё раз");
+    } finally {
+      setCreateCommentLoading(false);
+    }
+  };
+
 
   if (loading) {
     return (
@@ -1243,7 +1400,27 @@ export function OrderDetailsClient({ orderId }: { orderId: string }): React.JSX.
 
         <TabsContent value="comments">
           <Card className="space-y-3">
-            <p className="text-xs text-[var(--muted-2)]">Режим: {isLocked ? "только чтение (оплачено)" : "только чтение"}</p>
+            <form className="space-y-2 rounded-[14px] border border-white/10 bg-[var(--surface)] p-3" onSubmit={onCreateComment}>
+              <Label htmlFor="new-comment">Комментарий</Label>
+              <TextArea
+                id="new-comment"
+                placeholder="Напишите комментарий по заказу"
+                value={newCommentText}
+                onChange={(event) => setNewCommentText(event.target.value)}
+                maxLength={2000}
+                disabled={isLocked || createCommentLoading}
+              />
+
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-xs text-[var(--muted-2)]">{isLocked ? "Оплаченный заказ: добавление отключено" : "Новые комментарии сверху"}</p>
+                <Button type="submit" size="sm" disabled={isLocked} loading={createCommentLoading}>
+                  Добавить
+                </Button>
+              </div>
+
+              {createCommentError ? <ErrorText>{createCommentError}</ErrorText> : null}
+            </form>
+
             {data.comments.length === 0 ? (
               <p className="text-sm text-[var(--muted)]">Нет комментариев</p>
             ) : (
@@ -1262,51 +1439,118 @@ export function OrderDetailsClient({ orderId }: { orderId: string }): React.JSX.
 
         <TabsContent value="audit">
           <Card className="space-y-3">
-            <p className="text-xs text-[var(--muted-2)]">Режим: {isLocked ? "только чтение (оплачено)" : "только чтение"}</p>
-            {data.audit.length === 0 ? (
-              <p className="text-sm text-[var(--muted)]">Нет записей лога</p>
-            ) : (
-              data.audit.map((entry) => (
-                <div key={entry.id} className="rounded-[14px] border border-white/10 bg-[var(--surface)] px-3 py-2 text-sm">
-                  <div className="flex items-center justify-between gap-2">
+            <div className="rounded-[14px] border border-white/10 bg-[var(--surface)] p-3">
+              <div className="flex flex-wrap items-end gap-3">
+                <div className="min-w-44 flex-1">
+                  <Label htmlFor="audit-entity">Сущность</Label>
+                  <select
+                    id="audit-entity"
+                    className={selectClassName}
+                    value={auditEntityFilter}
+                    onChange={(event) => setAuditEntityFilter(event.target.value as AuditEntityFilter)}
+                  >
+                    <option value="ALL">Все</option>
+                    <option value={AuditEntity.ORDER}>ORDER</option>
+                    <option value={AuditEntity.ORDER_WORK}>ORDER_WORK</option>
+                    <option value={AuditEntity.ORDER_PART}>ORDER_PART</option>
+                    <option value={AuditEntity.EXPENSE}>EXPENSE</option>
+                    <option value={AuditEntity.COMMENT}>COMMENT</option>
+                    <option value={AuditEntity.USER}>USER</option>
+                    <option value={AuditEntity.SERVICE}>SERVICE</option>
+                    <option value={AuditEntity.AUTH}>AUTH</option>
+                  </select>
+                </div>
+
+                <div className="min-w-44 flex-1">
+                  <Label htmlFor="audit-action">Действие</Label>
+                  <select
+                    id="audit-action"
+                    className={selectClassName}
+                    value={auditActionFilter}
+                    onChange={(event) => setAuditActionFilter(event.target.value as AuditActionFilter)}
+                  >
+                    <option value="ALL">Все</option>
+                    <option value={AuditAction.CREATE}>CREATE</option>
+                    <option value={AuditAction.UPDATE}>UPDATE</option>
+                    <option value={AuditAction.DELETE}>DELETE</option>
+                    <option value={AuditAction.STATUS_CHANGE}>STATUS_CHANGE</option>
+                    <option value={AuditAction.LOGIN}>LOGIN</option>
+                    <option value={AuditAction.LOGOUT}>LOGOUT</option>
+                  </select>
+                </div>
+
+                <Button type="button" variant="secondary" onClick={() => void loadAudit()} loading={auditLoading}>
+                  Обновить
+                </Button>
+              </div>
+
+              {auditError ? <ErrorText className="mt-2">{auditError}</ErrorText> : null}
+            </div>
+
+            {auditLoading && audit.length === 0 ? <p className="text-sm text-[var(--muted)]">Загрузка лога…</p> : null}
+
+            {!auditLoading && audit.length === 0 ? <p className="text-sm text-[var(--muted)]">Нет записей лога</p> : null}
+
+            {audit.map((entry) => {
+              const diff = asAuditDiff(entry.diff);
+              const createdDetails = diff ? getCreatedDetails(diff) : [];
+              const changedDetails = diff ? getChangedDetails(diff) : [];
+              const deletedId = diff ? getDeletedDetails(diff) : "—";
+
+              return (
+                <div key={entry.id} className="rounded-[14px] border border-white/10 bg-[var(--surface)] px-3 py-3 text-sm">
+                  <div className="flex items-start justify-between gap-3">
                     <p className="font-medium text-[var(--text)]">
-                      {entry.action} · {entry.entity}
+                      {entry.actor.name} — {auditActionLabel[entry.action]} {auditEntityLabel[entry.entity]}
                     </p>
                     <p className="text-xs text-[var(--muted-2)]">{formatDateTime(entry.createdAt)}</p>
                   </div>
 
-                  {(() => {
-                    const diff = asAuditDiff(entry.diff);
+                  <details className="mt-2 rounded-[12px] border border-white/10 bg-black/10 px-3 py-2">
+                    <summary className="cursor-pointer text-xs text-[var(--muted)]">Детали</summary>
 
-                    if (!diff) {
-                      return <p className="mt-2 text-xs text-[var(--muted)]">Нет diff</p>;
-                    }
-
-                    if (diff.changed && Object.keys(diff.changed).length > 0) {
-                      return (
-                        <div className="mt-2 space-y-1 text-xs text-[var(--muted)]">
-                          {Object.entries(diff.changed).map(([field, value]) => (
-                            <p key={field}>
-                              {field}: {String(value.from ?? "—")} → {String(value.to ?? "—")}
-                            </p>
-                          ))}
+                    <div className="mt-2 space-y-2 text-xs text-[var(--muted)]">
+                      {createdDetails.length > 0 ? (
+                        <div>
+                          <p className="mb-1 font-medium text-[var(--text)]">Создано</p>
+                          <ul className="space-y-1">
+                            {createdDetails.map((item) => (
+                              <li key={item.key}>
+                                {item.key}: {item.value}
+                              </li>
+                            ))}
+                          </ul>
                         </div>
-                      );
-                    }
+                      ) : null}
 
-                    if (diff.created && Object.keys(diff.created).length > 0) {
-                      return <p className="mt-2 text-xs text-[var(--muted)]">Создано: {JSON.stringify(diff.created)}</p>;
-                    }
+                      {changedDetails.length > 0 ? (
+                        <div>
+                          <p className="mb-1 font-medium text-[var(--text)]">Изменения</p>
+                          <ul className="space-y-1">
+                            {changedDetails.map((item) => (
+                              <li key={item.key}>
+                                {item.key}: {item.from} → {item.to}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      ) : null}
 
-                    if (diff.deleted && Object.keys(diff.deleted).length > 0) {
-                      return <p className="mt-2 text-xs text-[var(--muted)]">Удалено: {JSON.stringify(diff.deleted)}</p>;
-                    }
+                      {diff?.deleted ? (
+                        <div>
+                          <p className="font-medium text-[var(--text)]">Удалено</p>
+                          <p>id: {deletedId}</p>
+                        </div>
+                      ) : null}
 
-                    return <pre className="mt-2 overflow-x-auto text-xs text-[var(--muted)]">{JSON.stringify(diff, null, 2)}</pre>;
-                  })()}
+                      {!diff || (createdDetails.length === 0 && changedDetails.length === 0 && !diff.deleted) ? (
+                        <p>Нет подробностей</p>
+                      ) : null}
+                    </div>
+                  </details>
                 </div>
-              ))
-            )}
+              );
+            })}
           </Card>
         </TabsContent>
       </Tabs>
