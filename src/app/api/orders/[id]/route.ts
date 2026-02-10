@@ -71,6 +71,12 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
             amountCents: true,
             expenseDate: true,
             createdById: true,
+            createdBy: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
             createdAt: true,
             updatedAt: true,
           },
