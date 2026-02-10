@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { ErrorText, Input, Label } from "@/components/ui/Input";
 import { Sheet, SheetContent, SheetFooter, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/Sheet";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/Tabs";
-import { formatRub } from "@/lib/money";
+import { formatRub, parseRubToCents } from "@/lib/money";
 import { OrderStatusBadgeVariant, OrderStatusLabel, orderStatusOptions } from "@/lib/orderStatus";
 
 type ApiError = {
@@ -55,6 +55,15 @@ type WorkItem = {
   service: { id: string; name: string } | null;
 };
 
+type PartItem = {
+  id: string;
+  name: string;
+  unitPriceCents: number;
+  quantity: number;
+  costCents: number | null;
+  createdAt: string;
+};
+
 type OrderDetailsResponse = {
   ok: true;
   order: {
@@ -71,14 +80,7 @@ type OrderDetailsResponse = {
     invoiceTotalCents: number;
     orderExpensesCents: number;
     works: WorkItem[];
-    parts: Array<{
-      id: string;
-      name: string;
-      unitPriceCents: number;
-      quantity: number;
-      costCents: number | null;
-      createdAt: string;
-    }>;
+    parts: PartItem[];
     expenses: Array<{
       id: string;
       title: string;
@@ -138,16 +140,6 @@ function asAuditDiff(value: unknown): AuditDiff | null {
   return value as AuditDiff;
 }
 
-function rubInputToCents(value: string): number | null {
-  const normalized = value.replace(",", ".").trim();
-  if (!normalized) return null;
-
-  const rub = Number(normalized);
-  if (!Number.isFinite(rub) || rub < 0) return null;
-
-  return Math.round(rub * 100);
-}
-
 async function parseError(response: Response): Promise<string> {
   const data = (await response.json().catch(() => null)) as ApiError | null;
   return data?.message ?? "Не удалось выполнить операцию";
@@ -190,6 +182,23 @@ export function OrderDetailsClient({ orderId }: { orderId: string }): React.JSX.
   const [editLoading, setEditLoading] = React.useState(false);
 
   const [deleteWorkId, setDeleteWorkId] = React.useState<string | null>(null);
+
+  const [createPartSheetOpen, setCreatePartSheetOpen] = React.useState(false);
+  const [createPartName, setCreatePartName] = React.useState("");
+  const [createPartUnitPriceRub, setCreatePartUnitPriceRub] = React.useState("");
+  const [createPartQuantity, setCreatePartQuantity] = React.useState("1");
+  const [createPartError, setCreatePartError] = React.useState<string | null>(null);
+  const [createPartLoading, setCreatePartLoading] = React.useState(false);
+
+  const [editPartSheetOpen, setEditPartSheetOpen] = React.useState(false);
+  const [editingPart, setEditingPart] = React.useState<PartItem | null>(null);
+  const [editPartName, setEditPartName] = React.useState("");
+  const [editPartUnitPriceRub, setEditPartUnitPriceRub] = React.useState("");
+  const [editPartQuantity, setEditPartQuantity] = React.useState("1");
+  const [editPartError, setEditPartError] = React.useState<string | null>(null);
+  const [editPartLoading, setEditPartLoading] = React.useState(false);
+
+  const [deletePartId, setDeletePartId] = React.useState<string | null>(null);
 
   const loadOrder = React.useCallback(async (): Promise<OrderDetailsResponse["order"]> => {
     const orderResponse = await fetch(`/api/orders/${orderId}`, { cache: "no-store" });
@@ -312,10 +321,17 @@ export function OrderDetailsClient({ orderId }: { orderId: string }): React.JSX.
     event.preventDefault();
     if (!data) return;
 
-    const unitPriceCents = rubInputToCents(createUnitPriceRub);
     const quantity = Number(createQuantity);
+    let unitPriceCents: number;
 
-    if (unitPriceCents === null || !Number.isInteger(quantity) || quantity < 1 || quantity > 999) {
+    try {
+      unitPriceCents = parseRubToCents(createUnitPriceRub);
+    } catch {
+      setCreateError("Проверьте цену и количество");
+      return;
+    }
+
+    if (!Number.isInteger(quantity) || quantity < 1 || quantity > 999) {
       setCreateError("Проверьте цену и количество");
       return;
     }
@@ -389,10 +405,17 @@ export function OrderDetailsClient({ orderId }: { orderId: string }): React.JSX.
     event.preventDefault();
     if (!data || !editingWork) return;
 
-    const unitPriceCents = rubInputToCents(editUnitPriceRub);
     const quantity = Number(editQuantity);
+    let unitPriceCents: number;
 
-    if (unitPriceCents === null || !Number.isInteger(quantity) || quantity < 1 || quantity > 999) {
+    try {
+      unitPriceCents = parseRubToCents(editUnitPriceRub);
+    } catch {
+      setEditError("Проверьте цену и количество");
+      return;
+    }
+
+    if (!Number.isInteger(quantity) || quantity < 1 || quantity > 999) {
       setEditError("Проверьте цену и количество");
       return;
     }
@@ -459,6 +482,151 @@ export function OrderDetailsClient({ orderId }: { orderId: string }): React.JSX.
       setError("Ошибка сети. Попробуйте ещё раз");
     } finally {
       setDeleteWorkId(null);
+    }
+  };
+
+
+  const resetCreatePartForm = React.useCallback(() => {
+    setCreatePartName("");
+    setCreatePartUnitPriceRub("");
+    setCreatePartQuantity("1");
+    setCreatePartError(null);
+  }, []);
+
+  React.useEffect(() => {
+    if (createPartSheetOpen) {
+      resetCreatePartForm();
+    }
+  }, [createPartSheetOpen, resetCreatePartForm]);
+
+  const openEditPartSheet = (part: PartItem): void => {
+    setEditingPart(part);
+    setEditPartName(part.name);
+    setEditPartUnitPriceRub(centsToRubInput(part.unitPriceCents));
+    setEditPartQuantity(String(part.quantity));
+    setEditPartError(null);
+    setEditPartSheetOpen(true);
+  };
+
+  const onCreatePart = async (event: React.FormEvent<HTMLFormElement>): Promise<void> => {
+    event.preventDefault();
+    if (!data) return;
+
+    const name = createPartName.trim();
+    const quantity = Number(createPartQuantity);
+
+    let unitPriceCents: number;
+
+    try {
+      unitPriceCents = parseRubToCents(createPartUnitPriceRub);
+    } catch {
+      setCreatePartError("Проверьте цену в рублях");
+      return;
+    }
+
+    if (!name || name.length > 120) {
+      setCreatePartError("Укажите название запчасти (до 120 символов)");
+      return;
+    }
+
+    if (!Number.isInteger(quantity) || quantity < 1 || quantity > 999) {
+      setCreatePartError("Количество должно быть от 1 до 999");
+      return;
+    }
+
+    setCreatePartLoading(true);
+    setCreatePartError(null);
+
+    try {
+      const response = await fetch(`/api/orders/${data.id}/parts`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, unitPriceCents, quantity }),
+      });
+
+      if (!response.ok) {
+        setCreatePartError(await parseError(response));
+        return;
+      }
+
+      await refreshOrder();
+      setCreatePartSheetOpen(false);
+    } catch {
+      setCreatePartError("Ошибка сети. Попробуйте ещё раз");
+    } finally {
+      setCreatePartLoading(false);
+    }
+  };
+
+  const onEditPart = async (event: React.FormEvent<HTMLFormElement>): Promise<void> => {
+    event.preventDefault();
+    if (!data || !editingPart) return;
+
+    const name = editPartName.trim();
+    const quantity = Number(editPartQuantity);
+
+    let unitPriceCents: number;
+
+    try {
+      unitPriceCents = parseRubToCents(editPartUnitPriceRub);
+    } catch {
+      setEditPartError("Проверьте цену в рублях");
+      return;
+    }
+
+    if (!name || name.length > 120) {
+      setEditPartError("Укажите название запчасти (до 120 символов)");
+      return;
+    }
+
+    if (!Number.isInteger(quantity) || quantity < 1 || quantity > 999) {
+      setEditPartError("Количество должно быть от 1 до 999");
+      return;
+    }
+
+    setEditPartLoading(true);
+    setEditPartError(null);
+
+    try {
+      const response = await fetch(`/api/orders/${data.id}/parts/${editingPart.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, unitPriceCents, quantity }),
+      });
+
+      if (!response.ok) {
+        setEditPartError(await parseError(response));
+        return;
+      }
+
+      await refreshOrder();
+      setEditPartSheetOpen(false);
+      setEditingPart(null);
+    } catch {
+      setEditPartError("Ошибка сети. Попробуйте ещё раз");
+    } finally {
+      setEditPartLoading(false);
+    }
+  };
+
+  const onDeletePart = async (partId: string): Promise<void> => {
+    if (!data) return;
+    if (!window.confirm("Удалить запчасть из заказа?")) return;
+
+    setDeletePartId(partId);
+
+    try {
+      const response = await fetch(`/api/orders/${data.id}/parts/${partId}`, { method: "DELETE" });
+      if (!response.ok) {
+        setError(await parseError(response));
+        return;
+      }
+
+      await refreshOrder();
+    } catch {
+      setError("Ошибка сети. Попробуйте ещё раз");
+    } finally {
+      setDeletePartId(null);
     }
   };
 
@@ -716,15 +884,95 @@ export function OrderDetailsClient({ orderId }: { orderId: string }): React.JSX.
 
         <TabsContent value="parts">
           <Card className="space-y-3">
-            <p className="text-xs text-[var(--muted-2)]">Режим: {isLocked ? "только чтение (оплачено)" : "только чтение"}</p>
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-xs text-[var(--muted-2)]">Режим: {isLocked ? "только чтение (оплачено)" : "редактирование"}</p>
+              <Sheet open={createPartSheetOpen} onOpenChange={setCreatePartSheetOpen}>
+                <SheetTrigger asChild>
+                  <Button size="sm" disabled={isLocked}>
+                    Добавить запчасть
+                  </Button>
+                </SheetTrigger>
+                <SheetContent side="bottom" className="max-h-[90vh] overflow-y-auto">
+                  <form className="space-y-3" onSubmit={onCreatePart}>
+                    <SheetHeader>
+                      <SheetTitle>Добавить запчасть</SheetTitle>
+                    </SheetHeader>
+
+                    <div>
+                      <Label htmlFor="create-part-name">Название</Label>
+                      <Input id="create-part-name" value={createPartName} onChange={(event) => setCreatePartName(event.target.value)} maxLength={120} required />
+                    </div>
+
+                    <div>
+                      <Label htmlFor="create-part-unit-price">Цена (руб)</Label>
+                      <Input
+                        id="create-part-unit-price"
+                        type="number"
+                        min={0}
+                        step="0.01"
+                        value={createPartUnitPriceRub}
+                        onChange={(event) => setCreatePartUnitPriceRub(event.target.value)}
+                        required
+                      />
+                    </div>
+
+                    <div>
+                      <Label htmlFor="create-part-qty">Количество</Label>
+                      <Input
+                        id="create-part-qty"
+                        type="number"
+                        min={1}
+                        max={999}
+                        step={1}
+                        value={createPartQuantity}
+                        onChange={(event) => setCreatePartQuantity(event.target.value)}
+                        required
+                      />
+                    </div>
+
+                    {createPartError ? <ErrorText>{createPartError}</ErrorText> : null}
+
+                    <SheetFooter>
+                      <Button type="button" variant="ghost" onClick={() => setCreatePartSheetOpen(false)} disabled={createPartLoading}>
+                        Отмена
+                      </Button>
+                      <Button type="submit" loading={createPartLoading}>
+                        Добавить
+                      </Button>
+                    </SheetFooter>
+                  </form>
+                </SheetContent>
+              </Sheet>
+            </div>
+
+            <div className="rounded-[14px] border border-white/10 bg-[var(--surface)] px-3 py-2 text-sm">
+              <p className="text-[var(--muted)]">Итого запчасти: {formatRub(data.partsSubtotalCents)}</p>
+            </div>
+
             {data.parts.length === 0 ? (
               <p className="text-sm text-[var(--muted)]">Нет запчастей</p>
             ) : (
               data.parts.map((part) => (
                 <div key={part.id} className="rounded-[14px] border border-white/10 bg-[var(--surface)] px-3 py-2 text-sm">
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="font-medium text-[var(--text)]">{part.name}</p>
-                    <p className="text-xs text-[var(--muted-2)]">{formatDateTime(part.createdAt)}</p>
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="font-medium text-[var(--text)]">{part.name}</p>
+                      <p className="text-xs text-[var(--muted-2)]">{formatDateTime(part.createdAt)}</p>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button size="sm" variant="secondary" onClick={() => openEditPartSheet(part)} disabled={isLocked}>
+                        Изменить
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="danger"
+                        onClick={() => void onDeletePart(part.id)}
+                        disabled={isLocked || deletePartId === part.id}
+                        loading={deletePartId === part.id}
+                      >
+                        Удалить
+                      </Button>
+                    </div>
                   </div>
                   <div className="mt-2 grid grid-cols-3 gap-2 text-xs text-[var(--muted)]">
                     <p>Кол-во: {part.quantity}</p>
@@ -877,6 +1125,68 @@ export function OrderDetailsClient({ orderId }: { orderId: string }): React.JSX.
                 Отмена
               </Button>
               <Button type="submit" loading={editLoading}>
+                Сохранить
+              </Button>
+            </SheetFooter>
+          </form>
+        </SheetContent>
+      </Sheet>
+
+      <Sheet
+        open={editPartSheetOpen}
+        onOpenChange={(open) => {
+          setEditPartSheetOpen(open);
+          if (!open) {
+            setEditingPart(null);
+            setEditPartError(null);
+          }
+        }}
+      >
+        <SheetContent side="bottom" className="max-h-[90vh] overflow-y-auto">
+          <form className="space-y-3" onSubmit={onEditPart}>
+            <SheetHeader>
+              <SheetTitle>Редактировать запчасть</SheetTitle>
+            </SheetHeader>
+
+            <div>
+              <Label htmlFor="edit-part-name">Название</Label>
+              <Input id="edit-part-name" value={editPartName} onChange={(event) => setEditPartName(event.target.value)} maxLength={120} required />
+            </div>
+
+            <div>
+              <Label htmlFor="edit-part-unit-price">Цена (руб)</Label>
+              <Input
+                id="edit-part-unit-price"
+                type="number"
+                min={0}
+                step="0.01"
+                value={editPartUnitPriceRub}
+                onChange={(event) => setEditPartUnitPriceRub(event.target.value)}
+                required
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="edit-part-qty">Количество</Label>
+              <Input
+                id="edit-part-qty"
+                type="number"
+                min={1}
+                max={999}
+                step={1}
+                value={editPartQuantity}
+                onChange={(event) => setEditPartQuantity(event.target.value)}
+                required
+              />
+            </div>
+
+            {editPartError ? <ErrorText>{editPartError}</ErrorText> : null}
+
+            <SheetFooter>
+              <Button type="button" variant="ghost" onClick={() => setEditPartSheetOpen(false)} disabled={editPartLoading}>
+                Отмена
+              </Button>
+              <Button type="submit" loading={editPartLoading}>
                 Сохранить
               </Button>
             </SheetFooter>
