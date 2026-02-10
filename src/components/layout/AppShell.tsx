@@ -4,6 +4,8 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 
+import { ToastProvider } from "@/components/ui/Toast";
+import { apiPost } from "@/lib/http/api";
 import { cn } from "@/lib/cn";
 import type { Session } from "@/lib/auth/session";
 
@@ -43,20 +45,20 @@ export function AppShell({ session, children }: AppShellProps): React.JSX.Elemen
   );
 
   const activeItem = visibleItems.find((item) => isActivePath(pathname, item.href));
-  const sectionTitle = activeItem?.sectionTitle ?? "Раздел";
+  const sectionTitle = activeItem?.sectionTitle ?? (isActivePath(pathname, "/orders") ? "Заказы" : "Раздел");
 
   async function onLogout(): Promise<void> {
     setLoggingOut(true);
     try {
-      await fetch("/api/auth/logout", { method: "POST" });
+      await apiPost<{ ok: true }>("/api/auth/logout");
     } finally {
       router.replace("/login");
-      router.refresh();
     }
   }
 
   return (
-    <div className="ios-bg min-h-[100dvh] pb-24">
+    <ToastProvider>
+      <div className="ios-bg min-h-[100dvh] pb-24">
       <header className="sticky top-0 z-30 border-b border-white/10 bg-black/55 backdrop-blur-xl">
         <div className="mx-auto flex h-16 w-full max-w-5xl items-center justify-between px-4">
           <div>
@@ -100,6 +102,7 @@ export function AppShell({ session, children }: AppShellProps): React.JSX.Elemen
           })}
         </ul>
       </nav>
-    </div>
+      </div>
+    </ToastProvider>
   );
 }

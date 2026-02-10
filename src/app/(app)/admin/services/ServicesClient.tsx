@@ -2,6 +2,7 @@
 
 import * as React from "react";
 
+import { useToast } from "@/components/ui/Toast";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/Card";
@@ -15,6 +16,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/Sheet";
+import { apiGet, apiPatch, apiPost } from "@/lib/http/api";
 import { formatRub, parseRubToCents } from "@/lib/money";
 
 type Service = {
@@ -24,11 +26,6 @@ type Service = {
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
-};
-
-type ApiError = {
-  ok?: false;
-  message?: string;
 };
 
 type ServiceForm = {
@@ -43,16 +40,8 @@ const emptyCreateForm: ServiceForm = {
   isActive: true,
 };
 
-async function parseError(response: Response): Promise<string> {
-  const data = (await response.json().catch(() => null)) as ApiError | null;
-  if (data?.message) {
-    return data.message;
-  }
-
-  return "Не удалось выполнить запрос";
-}
-
 export function ServicesClient(): React.JSX.Element {
+  const { showToast } = useToast();
   const [services, setServices] = React.useState<Service[]>([]);
   const [search, setSearch] = React.useState("");
   const [isListLoading, setIsListLoading] = React.useState(true);
@@ -74,16 +63,10 @@ export function ServicesClient(): React.JSX.Element {
     setListError(null);
 
     try {
-      const response = await fetch("/api/admin/services", { cache: "no-store" });
-      if (!response.ok) {
-        setListError(await parseError(response));
-        return;
-      }
-
-      const data = (await response.json()) as { ok: true; services: Service[] };
+      const data = await apiGet<{ ok: true; services: Service[] }>("/api/admin/services");
       setServices(data.services);
-    } catch {
-      setListError("Ошибка сети. Попробуйте ещё раз");
+    } catch (error) {
+      setListError(error instanceof Error ? error.message : "Ошибка запроса");
     } finally {
       setIsListLoading(false);
     }
@@ -117,26 +100,20 @@ export function ServicesClient(): React.JSX.Element {
     setCreateLoading(true);
 
     try {
-      const response = await fetch("/api/admin/services", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: createForm.name,
-          defaultPriceCents,
-          isActive: createForm.isActive,
-        }),
+      await apiPost<{ ok: true }>("/api/admin/services", {
+        name: createForm.name,
+        defaultPriceCents,
+        isActive: createForm.isActive,
       });
-
-      if (!response.ok) {
-        setCreateError(await parseError(response));
-        return;
-      }
 
       setCreateOpen(false);
       setCreateForm(emptyCreateForm);
       await fetchServices();
-    } catch {
-      setCreateError("Ошибка сети. Попробуйте ещё раз");
+      showToast("Добавлено");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Ошибка запроса";
+      setCreateError(message);
+      showToast(message, "error");
     } finally {
       setCreateLoading(false);
     }
@@ -173,26 +150,20 @@ export function ServicesClient(): React.JSX.Element {
     setEditLoading(true);
 
     try {
-      const response = await fetch(`/api/admin/services/${editingService.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: editForm.name,
-          defaultPriceCents,
-          isActive: editForm.isActive,
-        }),
+      await apiPatch<{ ok: true }>(`/api/admin/services/${editingService.id}`, {
+        name: editForm.name,
+        defaultPriceCents,
+        isActive: editForm.isActive,
       });
-
-      if (!response.ok) {
-        setEditError(await parseError(response));
-        return;
-      }
 
       setEditOpen(false);
       setEditingService(null);
       await fetchServices();
-    } catch {
-      setEditError("Ошибка сети. Попробуйте ещё раз");
+      showToast("Сохранено");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Ошибка запроса";
+      setEditError(message);
+      showToast(message, "error");
     } finally {
       setEditLoading(false);
     }
