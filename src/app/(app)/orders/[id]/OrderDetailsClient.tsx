@@ -946,7 +946,7 @@ export function OrderDetailsClient({ orderId }: { orderId: string }): React.JSX.
             </div>
 
             <div className="rounded-[14px] border border-white/10 bg-[var(--surface)] px-3 py-2 text-sm">
-              <p className="text-[var(--muted)]">Итого по запчастям: {formatRub(data.partsSubtotalCents)}</p>
+              <p className="text-[var(--muted)]">Итого запчасти: {formatRub(data.partsSubtotalCents)}</p>
             </div>
 
             {data.parts.length === 0 ? (
