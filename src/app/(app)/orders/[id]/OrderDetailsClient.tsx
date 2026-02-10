@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { ErrorText, Input, Label, TextArea } from "@/components/ui/Input";
 import { Sheet, SheetContent, SheetFooter, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/Sheet";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/Tabs";
+import { formatDateTimeRu } from "@/lib/dates";
 import { formatRub, parseRubToCents } from "@/lib/money";
 import { OrderStatusBadgeVariant, OrderStatusLabel, orderStatusOptions } from "@/lib/orderStatus";
 
@@ -164,13 +165,7 @@ const auditActionLabel: Record<AuditAction, string> = {
 function formatDateTime(value: string | null): string {
   if (!value) return "—";
 
-  return new Intl.DateTimeFormat("ru-RU", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(new Date(value));
+  return formatDateTimeRu(value);
 }
 
 function centsToRubInput(cents: number): string {

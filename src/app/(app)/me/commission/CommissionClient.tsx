@@ -5,6 +5,7 @@ import * as React from "react";
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { ErrorText, Input, Label } from "@/components/ui/Input";
+import { formatDateRu, formatDateTimeRu } from "@/lib/dates";
 import { formatRub } from "@/lib/money";
 
 type Bucket = "day" | "week" | "month";
@@ -64,41 +65,18 @@ const bucketLabels: Record<Bucket, string> = {
 };
 
 function formatDateTime(value: string): string {
-  return new Date(value).toLocaleString("ru-RU", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  return formatDateTimeRu(value);
 }
 
 function formatBucketLabel(value: string, bucket: Bucket): string {
   const date = new Date(value);
 
-  if (bucket === "month") {
-    return date.toLocaleDateString("ru-RU", {
-      month: "long",
-      year: "numeric",
-    });
-  }
-
   if (bucket === "week") {
     const weekEnd = new Date(date.getTime() + 6 * 24 * 60 * 60 * 1000);
-    return `${date.toLocaleDateString("ru-RU", {
-      day: "2-digit",
-      month: "2-digit",
-    })} — ${weekEnd.toLocaleDateString("ru-RU", {
-      day: "2-digit",
-      month: "2-digit",
-    })}`;
+    return `${formatDateRu(date)} — ${formatDateRu(weekEnd)}`;
   }
 
-  return date.toLocaleDateString("ru-RU", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "2-digit",
-  });
+  return formatDateRu(date);
 }
 
 function getCurrentMonthRange(): { from: string; to: string } {

@@ -5,6 +5,7 @@ import * as React from "react";
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { ErrorText, Input, Label } from "@/components/ui/Input";
+import { formatDateRu } from "@/lib/dates";
 import { formatRub } from "@/lib/money";
 
 type Bucket = "day" | "week" | "month";
@@ -64,15 +65,11 @@ function getDefaultPeriod(): Pick<Filters, "from" | "to"> {
 function formatBucketLabel(value: string, bucket: Bucket): string {
   const date = new Date(value);
 
-  if (bucket === "day") {
-    return date.toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit" });
-  }
-
   if (bucket === "week") {
-    return `нед. ${date.toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit" })}`;
+    return `Неделя с ${formatDateRu(date)}`;
   }
 
-  return date.toLocaleDateString("ru-RU", { month: "short", year: "2-digit" });
+  return formatDateRu(date);
 }
 
 async function parseError(response: Response): Promise<string> {
