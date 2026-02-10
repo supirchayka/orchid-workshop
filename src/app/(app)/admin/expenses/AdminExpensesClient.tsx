@@ -2,16 +2,13 @@
 
 import * as React from "react";
 
+import { useToast } from "@/components/ui/Toast";
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/Card";
 import { ErrorText, Input, Label } from "@/components/ui/Input";
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/Sheet";
+import { apiDelete, apiGet, apiPatch, apiPost } from "@/lib/http/api";
 import { formatRub, parseRubToCents } from "@/lib/money";
-
-type ApiError = {
-  ok?: false;
-  message?: string;
-};
 
 type Expense = {
   id: string;
@@ -35,17 +32,12 @@ const emptyExpenseForm: ExpenseForm = {
   expenseDate: "",
 };
 
-async function parseError(response: Response): Promise<string> {
-  const data = (await response.json().catch(() => null)) as ApiError | null;
-  if (data?.message) return data.message;
-  return "Не удалось выполнить запрос";
-}
-
 function toDateInputValue(isoDateTime: string): string {
   return isoDateTime.slice(0, 10);
 }
 
 export function AdminExpensesClient(): React.JSX.Element {
+  const { showToast } = useToast();
   const [expenses, setExpenses] = React.useState<Expense[]>([]);
   const [isListLoading, setIsListLoading] = React.useState(true);
   const [listError, setListError] = React.useState<string | null>(null);
@@ -76,16 +68,10 @@ export function AdminExpensesClient(): React.JSX.Element {
       if (params?.to) searchParams.set("to", params.to);
       const query = searchParams.toString();
 
-      const response = await fetch(`/api/admin/expenses${query ? `?${query}` : ""}`, { cache: "no-store" });
-      if (!response.ok) {
-        setListError(await parseError(response));
-        return;
-      }
-
-      const payload = (await response.json()) as { ok: true; expenses: Expense[] };
+      const payload = await apiGet<{ ok: true; expenses: Expense[] }>(`/api/admin/expenses${query ? `?${query}` : ""}`);
       setExpenses(payload.expenses);
-    } catch {
-      setListError("Ошибка сети. Попробуйте ещё раз");
+    } catch (error) {
+      setListError(error instanceof Error ? error.message : "Ошибка запроса");
     } finally {
       setIsListLoading(false);
     }
@@ -117,26 +103,20 @@ export function AdminExpensesClient(): React.JSX.Element {
     setCreateLoading(true);
 
     try {
-      const response = await fetch("/api/admin/expenses", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title: createForm.title,
-          amountCents,
-          ...(createForm.expenseDate ? { expenseDate: createForm.expenseDate } : {}),
-        }),
+      await apiPost<{ ok: true }>("/api/admin/expenses", {
+        title: createForm.title,
+        amountCents,
+        ...(createForm.expenseDate ? { expenseDate: createForm.expenseDate } : {}),
       });
-
-      if (!response.ok) {
-        setCreateError(await parseError(response));
-        return;
-      }
 
       setCreateOpen(false);
       setCreateForm(emptyExpenseForm);
       await fetchExpenses({ from: filterFrom || undefined, to: filterTo || undefined });
-    } catch {
-      setCreateError("Ошибка сети. Попробуйте ещё раз");
+      showToast("Добавлено");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Ошибка запроса";
+      setCreateError(message);
+      showToast(message, "error");
     } finally {
       setCreateLoading(false);
     }
@@ -173,26 +153,20 @@ export function AdminExpensesClient(): React.JSX.Element {
     setEditLoading(true);
 
     try {
-      const response = await fetch(`/api/admin/expenses/${editingExpense.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title: editForm.title,
-          amountCents,
-          expenseDate: editForm.expenseDate,
-        }),
+      await apiPatch<{ ok: true }>(`/api/admin/expenses/${editingExpense.id}`, {
+        title: editForm.title,
+        amountCents,
+        expenseDate: editForm.expenseDate,
       });
-
-      if (!response.ok) {
-        setEditError(await parseError(response));
-        return;
-      }
 
       setEditOpen(false);
       setEditingExpense(null);
       await fetchExpenses({ from: filterFrom || undefined, to: filterTo || undefined });
-    } catch {
-      setEditError("Ошибка сети. Попробуйте ещё раз");
+      showToast("Сохранено");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Ошибка запроса";
+      setEditError(message);
+      showToast(message, "error");
     } finally {
       setEditLoading(false);
     }
@@ -206,15 +180,13 @@ export function AdminExpensesClient(): React.JSX.Element {
     setDeleteId(expense.id);
 
     try {
-      const response = await fetch(`/api/admin/expenses/${expense.id}`, { method: "DELETE" });
-      if (!response.ok) {
-        setListError(await parseError(response));
-        return;
-      }
-
+      await apiDelete<{ ok: true }>(`/api/admin/expenses/${expense.id}`);
       await fetchExpenses({ from: filterFrom || undefined, to: filterTo || undefined });
-    } catch {
-      setListError("Ошибка сети. Попробуйте ещё раз");
+      showToast("Удалено");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Ошибка запроса";
+      setListError(message);
+      showToast(message, "error");
     } finally {
       setDeleteId(null);
     }

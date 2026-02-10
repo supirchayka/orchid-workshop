@@ -2,6 +2,7 @@
 
 import * as React from "react";
 
+import { useToast } from "@/components/ui/Toast";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/Card";
@@ -14,6 +15,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/Sheet";
+import { apiGet, apiPatch, apiPost } from "@/lib/http/api";
 
 type User = {
   id: string;
@@ -23,11 +25,6 @@ type User = {
   commissionPct: number;
   createdAt: string;
   updatedAt: string;
-};
-
-type ApiError = {
-  ok?: false;
-  message?: string;
 };
 
 type MeResponse = {
@@ -53,16 +50,8 @@ type EditForm = {
   isActive: boolean;
 };
 
-async function parseError(response: Response): Promise<string> {
-  const data = (await response.json().catch(() => null)) as ApiError | null;
-  if (data?.message) {
-    return data.message;
-  }
-
-  return "Не удалось выполнить запрос";
-}
-
 export function UsersClient(): React.JSX.Element {
+  const { showToast } = useToast();
   const [users, setUsers] = React.useState<User[]>([]);
   const [currentUserId, setCurrentUserId] = React.useState<string | null>(null);
   const [search, setSearch] = React.useState("");
@@ -101,16 +90,10 @@ export function UsersClient(): React.JSX.Element {
     setListError(null);
 
     try {
-      const response = await fetch("/api/admin/users", { cache: "no-store" });
-      if (!response.ok) {
-        setListError(await parseError(response));
-        return;
-      }
-
-      const data = (await response.json()) as { ok: true; users: User[] };
+      const data = await apiGet<{ ok: true; users: User[] }>("/api/admin/users");
       setUsers(data.users);
-    } catch {
-      setListError("Ошибка сети. Попробуйте ещё раз");
+    } catch (error) {
+      setListError(error instanceof Error ? error.message : "Ошибка запроса");
     } finally {
       setIsListLoading(false);
     }
@@ -125,12 +108,7 @@ export function UsersClient(): React.JSX.Element {
 
     const fetchMe = async (): Promise<void> => {
       try {
-        const response = await fetch("/api/me", { cache: "no-store" });
-        if (!response.ok) {
-          return;
-        }
-
-        const data = (await response.json()) as MeResponse;
+        const data = await apiGet<MeResponse>("/api/me");
         if (active) {
           setCurrentUserId(data.me.id);
         }
@@ -161,28 +139,22 @@ export function UsersClient(): React.JSX.Element {
     setCreateLoading(true);
 
     try {
-      const response = await fetch("/api/admin/users", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: createForm.name,
-          password: createForm.password,
-          commissionPct: Number(createForm.commissionPct),
-          isAdmin: createForm.isAdmin,
-          isActive: createForm.isActive,
-        }),
+      await apiPost<{ ok: true }>("/api/admin/users", {
+        name: createForm.name,
+        password: createForm.password,
+        commissionPct: Number(createForm.commissionPct),
+        isAdmin: createForm.isAdmin,
+        isActive: createForm.isActive,
       });
-
-      if (!response.ok) {
-        setCreateError(await parseError(response));
-        return;
-      }
 
       setCreateOpen(false);
       setCreateForm({ name: "", password: "", commissionPct: "0", isAdmin: false, isActive: true });
       await fetchUsers();
-    } catch {
-      setCreateError("Ошибка сети. Попробуйте ещё раз");
+      showToast("Добавлено");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Ошибка запроса";
+      setCreateError(message);
+      showToast(message, "error");
     } finally {
       setCreateLoading(false);
     }
@@ -212,26 +184,20 @@ export function UsersClient(): React.JSX.Element {
     setEditLoading(true);
 
     try {
-      const response = await fetch(`/api/admin/users/${editingUser.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          commissionPct: Number(editForm.commissionPct),
-          isAdmin: editForm.isAdmin,
-          isActive: editForm.isActive,
-        }),
+      await apiPatch<{ ok: true }>(`/api/admin/users/${editingUser.id}`, {
+        commissionPct: Number(editForm.commissionPct),
+        isAdmin: editForm.isAdmin,
+        isActive: editForm.isActive,
       });
-
-      if (!response.ok) {
-        setEditError(await parseError(response));
-        return;
-      }
 
       setEditOpen(false);
       setEditingUser(null);
       await fetchUsers();
-    } catch {
-      setEditError("Ошибка сети. Попробуйте ещё раз");
+      showToast("Сохранено");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Ошибка запроса";
+      setEditError(message);
+      showToast(message, "error");
     } finally {
       setEditLoading(false);
     }
@@ -255,22 +221,16 @@ export function UsersClient(): React.JSX.Element {
     setPasswordLoading(true);
 
     try {
-      const response = await fetch(`/api/admin/users/${passwordUser.id}/password`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ password: passwordValue }),
-      });
-
-      if (!response.ok) {
-        setPasswordError(await parseError(response));
-        return;
-      }
+      await apiPost<{ ok: true }>(`/api/admin/users/${passwordUser.id}/password`, { password: passwordValue });
 
       setPasswordOpen(false);
       setPasswordUser(null);
       setPasswordValue("");
-    } catch {
-      setPasswordError("Ошибка сети. Попробуйте ещё раз");
+      showToast("Сохранено");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Ошибка запроса";
+      setPasswordError(message);
+      showToast(message, "error");
     } finally {
       setPasswordLoading(false);
     }
