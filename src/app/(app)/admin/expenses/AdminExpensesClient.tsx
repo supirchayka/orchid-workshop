@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/Button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/Card";
 import { ErrorText, Input, Label } from "@/components/ui/Input";
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/Sheet";
-import { apiDelete, apiGet, apiPatch, apiPost } from "@/lib/http/api";
+import { apiDelete, apiGet, apiPatch, apiPost, getErrorMessage } from "@/lib/http/api";
 import { formatRub, parseRubToCents } from "@/lib/money";
 
 type Expense = {
@@ -71,7 +71,7 @@ export function AdminExpensesClient(): React.JSX.Element {
       const payload = await apiGet<{ ok: true; expenses: Expense[] }>(`/api/admin/expenses${query ? `?${query}` : ""}`);
       setExpenses(payload.expenses);
     } catch (error) {
-      setListError(error instanceof Error ? error.message : "Ошибка запроса");
+      setListError(getErrorMessage(error));
     } finally {
       setIsListLoading(false);
     }
@@ -114,7 +114,7 @@ export function AdminExpensesClient(): React.JSX.Element {
       await fetchExpenses({ from: filterFrom || undefined, to: filterTo || undefined });
       showToast("Добавлено");
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Ошибка запроса";
+      const message = getErrorMessage(error);
       setCreateError(message);
       showToast(message, "error");
     } finally {
@@ -164,7 +164,7 @@ export function AdminExpensesClient(): React.JSX.Element {
       await fetchExpenses({ from: filterFrom || undefined, to: filterTo || undefined });
       showToast("Сохранено");
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Ошибка запроса";
+      const message = getErrorMessage(error);
       setEditError(message);
       showToast(message, "error");
     } finally {
@@ -184,7 +184,7 @@ export function AdminExpensesClient(): React.JSX.Element {
       await fetchExpenses({ from: filterFrom || undefined, to: filterTo || undefined });
       showToast("Удалено");
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Ошибка запроса";
+      const message = getErrorMessage(error);
       setListError(message);
       showToast(message, "error");
     } finally {

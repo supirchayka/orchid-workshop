@@ -15,7 +15,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/Sheet";
-import { apiGet, apiPatch, apiPost } from "@/lib/http/api";
+import { apiGet, apiPatch, apiPost, getErrorMessage } from "@/lib/http/api";
 
 type User = {
   id: string;
@@ -93,7 +93,7 @@ export function UsersClient(): React.JSX.Element {
       const data = await apiGet<{ ok: true; users: User[] }>("/api/admin/users");
       setUsers(data.users);
     } catch (error) {
-      setListError(error instanceof Error ? error.message : "Ошибка запроса");
+      setListError(getErrorMessage(error));
     } finally {
       setIsListLoading(false);
     }
@@ -152,7 +152,7 @@ export function UsersClient(): React.JSX.Element {
       await fetchUsers();
       showToast("Добавлено");
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Ошибка запроса";
+      const message = getErrorMessage(error);
       setCreateError(message);
       showToast(message, "error");
     } finally {
@@ -195,7 +195,7 @@ export function UsersClient(): React.JSX.Element {
       await fetchUsers();
       showToast("Сохранено");
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Ошибка запроса";
+      const message = getErrorMessage(error);
       setEditError(message);
       showToast(message, "error");
     } finally {
@@ -228,7 +228,7 @@ export function UsersClient(): React.JSX.Element {
       setPasswordValue("");
       showToast("Сохранено");
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Ошибка запроса";
+      const message = getErrorMessage(error);
       setPasswordError(message);
       showToast(message, "error");
     } finally {
