@@ -719,8 +719,11 @@ export function OrderDetailsClient({ orderId }: { orderId: string }): React.JSX.
   }, [createExpenseSheetOpen, resetCreateExpenseForm]);
 
   const canManageExpense = React.useCallback(
-    (expense: OrderDetailsResponse["order"]["expenses"][number]) => me.isAdmin || expense.createdById === me.id,
-    [me.id, me.isAdmin],
+    (expense: OrderDetailsResponse["order"]["expenses"][number]) => {
+      if (!me) return false;
+      return me.isAdmin || expense.createdById === me.id;
+    },
+    [me],
   );
 
   const onCreateExpense = async (event: React.FormEvent<HTMLFormElement>): Promise<void> => {
