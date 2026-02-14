@@ -23,7 +23,15 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
     throw new ApiError(payload?.message ?? "Ошибка запроса", response.status);
   }
 
-  return (await response.json()) as T;
+  if (response.status === 204) {
+    return undefined as T;
+  }
+
+  return (await response.json().catch(() => ({}))) as T;
+}
+
+export function getErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : "Ошибка запроса";
 }
 
 export function apiGet<T>(url: string): Promise<T> {

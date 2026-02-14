@@ -10,7 +10,7 @@ import { Sheet, SheetContent, SheetFooter, SheetHeader, SheetTitle, SheetTrigger
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/Tabs";
 import { useToast } from "@/components/ui/Toast";
 import { formatDateTimeRu } from "@/lib/dates";
-import { apiDelete, apiGet, apiPatch, apiPost } from "@/lib/http/api";
+import { apiDelete, apiGet, apiPatch, apiPost, getErrorMessage } from "@/lib/http/api";
 import { formatRub, parseRubToCents } from "@/lib/money";
 import { orderStatusOptions } from "@/lib/orderStatus";
 import { isPaidLocked } from "@/lib/orders/isLocked";
@@ -328,7 +328,7 @@ export function OrderDetailsClient({ orderId }: { orderId: string }): React.JSX.
       const payload = await apiGet<AuditListResponse>(`/api/orders/${orderId}/audit?${params.toString()}`);
       setAudit(payload.audit);
     } catch (error) {
-      setAuditError(error instanceof Error ? error.message : "Ошибка запроса");
+      setAuditError(getErrorMessage(error));
     } finally {
       setAuditLoading(false);
     }
@@ -361,7 +361,7 @@ export function OrderDetailsClient({ orderId }: { orderId: string }): React.JSX.
         setUsers(usersPayload.users);
       } catch (error) {
         if (!active) return;
-        setError(error instanceof Error ? error.message : "Ошибка запроса");
+        setError(getErrorMessage(error));
       } finally {
         if (active) setLoading(false);
       }
@@ -416,7 +416,7 @@ export function OrderDetailsClient({ orderId }: { orderId: string }): React.JSX.
       setStatusSheetOpen(false);
       setNextStatus(refreshedOrder.status);
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Ошибка запроса";
+      const message = getErrorMessage(error);
       setStatusError(message);
       showToast(message, "error");
     } finally {
@@ -483,7 +483,7 @@ export function OrderDetailsClient({ orderId }: { orderId: string }): React.JSX.
       showToast("Добавлено");
       setCreateSheetOpen(false);
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Ошибка запроса";
+      const message = getErrorMessage(error);
       setCreateError(message);
       showToast(message, "error");
     } finally {
@@ -549,7 +549,7 @@ export function OrderDetailsClient({ orderId }: { orderId: string }): React.JSX.
       setEditSheetOpen(false);
       setEditingWork(null);
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Ошибка запроса";
+      const message = getErrorMessage(error);
       setEditError(message);
       showToast(message, "error");
     } finally {
@@ -568,7 +568,7 @@ export function OrderDetailsClient({ orderId }: { orderId: string }): React.JSX.
       await refreshOrder();
       showToast("Удалено");
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Ошибка запроса";
+      const message = getErrorMessage(error);
       setError(message);
       showToast(message, "error");
     } finally {
@@ -634,7 +634,7 @@ export function OrderDetailsClient({ orderId }: { orderId: string }): React.JSX.
       showToast("Добавлено");
       setCreatePartSheetOpen(false);
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Ошибка запроса";
+      const message = getErrorMessage(error);
       setCreatePartError(message);
       showToast(message, "error");
     } finally {
@@ -678,7 +678,7 @@ export function OrderDetailsClient({ orderId }: { orderId: string }): React.JSX.
       setEditPartSheetOpen(false);
       setEditingPart(null);
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Ошибка запроса";
+      const message = getErrorMessage(error);
       setEditPartError(message);
       showToast(message, "error");
     } finally {
@@ -697,7 +697,7 @@ export function OrderDetailsClient({ orderId }: { orderId: string }): React.JSX.
       await refreshOrder();
       showToast("Удалено");
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Ошибка запроса";
+      const message = getErrorMessage(error);
       setError(message);
       showToast(message, "error");
     } finally {
@@ -755,7 +755,7 @@ export function OrderDetailsClient({ orderId }: { orderId: string }): React.JSX.
       showToast("Добавлено");
       setCreateExpenseSheetOpen(false);
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Ошибка запроса";
+      const message = getErrorMessage(error);
       setCreateExpenseError(message);
       showToast(message, "error");
     } finally {
@@ -806,7 +806,7 @@ export function OrderDetailsClient({ orderId }: { orderId: string }): React.JSX.
       setEditExpenseSheetOpen(false);
       setEditingExpense(null);
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Ошибка запроса";
+      const message = getErrorMessage(error);
       setEditExpenseError(message);
       showToast(message, "error");
     } finally {
@@ -825,7 +825,7 @@ export function OrderDetailsClient({ orderId }: { orderId: string }): React.JSX.
       await refreshOrder();
       showToast("Удалено");
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Ошибка запроса";
+      const message = getErrorMessage(error);
       setError(message);
       showToast(message, "error");
     } finally {
@@ -854,7 +854,7 @@ export function OrderDetailsClient({ orderId }: { orderId: string }): React.JSX.
       await refreshOrder();
       showToast("Добавлено");
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Ошибка запроса";
+      const message = getErrorMessage(error);
       setCreateCommentError(message);
       showToast(message, "error");
     } finally {

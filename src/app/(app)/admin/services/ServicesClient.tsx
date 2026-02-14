@@ -16,7 +16,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/Sheet";
-import { apiGet, apiPatch, apiPost } from "@/lib/http/api";
+import { apiGet, apiPatch, apiPost, getErrorMessage } from "@/lib/http/api";
 import { formatRub, parseRubToCents } from "@/lib/money";
 
 type Service = {
@@ -66,7 +66,7 @@ export function ServicesClient(): React.JSX.Element {
       const data = await apiGet<{ ok: true; services: Service[] }>("/api/admin/services");
       setServices(data.services);
     } catch (error) {
-      setListError(error instanceof Error ? error.message : "Ошибка запроса");
+      setListError(getErrorMessage(error));
     } finally {
       setIsListLoading(false);
     }
@@ -111,7 +111,7 @@ export function ServicesClient(): React.JSX.Element {
       await fetchServices();
       showToast("Добавлено");
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Ошибка запроса";
+      const message = getErrorMessage(error);
       setCreateError(message);
       showToast(message, "error");
     } finally {
@@ -161,7 +161,7 @@ export function ServicesClient(): React.JSX.Element {
       await fetchServices();
       showToast("Сохранено");
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Ошибка запроса";
+      const message = getErrorMessage(error);
       setEditError(message);
       showToast(message, "error");
     } finally {
