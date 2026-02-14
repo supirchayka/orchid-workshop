@@ -1,22 +1,25 @@
 "use client";
 
-import { AuditAction, AuditEntity, OrderStatus } from "@prisma/client";
 import * as React from "react";
 
-import { Badge } from "@/components/ui/Badge";
+import { OrderStatusBadge } from "@/components/orders/OrderStatusBadge";
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { ErrorText, Input, Label, TextArea } from "@/components/ui/Input";
 import { Sheet, SheetContent, SheetFooter, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/Sheet";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/Tabs";
+import { useToast } from "@/components/ui/Toast";
 import { formatDateTimeRu } from "@/lib/dates";
+import { apiDelete, apiGet, apiPatch, apiPost } from "@/lib/http/api";
 import { formatRub, parseRubToCents } from "@/lib/money";
-import { OrderStatusBadgeVariant, OrderStatusLabel, orderStatusOptions } from "@/lib/orderStatus";
+import { orderStatusOptions } from "@/lib/orderStatus";
+import { isPaidLocked } from "@/lib/orders/isLocked";
 
-type ApiError = {
-  ok?: false;
-  message?: string;
-};
+type OrderStatus = "NEW" | "IN_PROGRESS" | "WAITING_PARTS" | "READY_FOR_PICKUP" | "PAID";
+
+type AuditAction = "CREATE" | "UPDATE" | "DELETE" | "STATUS_CHANGE" | "LOGIN" | "LOGOUT";
+
+type AuditEntity = "ORDER" | "ORDER_WORK" | "ORDER_PART" | "EXPENSE" | "COMMENT" | "USER" | "SERVICE" | "AUTH";
 
 type MeResponse = {
   ok: true;
@@ -216,15 +219,11 @@ function getDeletedDetails(diff: AuditDiff): string {
   return formatAuditValue(diff.deleted.id);
 }
 
-async function parseError(response: Response): Promise<string> {
-  const data = (await response.json().catch(() => null)) as ApiError | null;
-  return data?.message ?? "Не удалось выполнить операцию";
-}
-
 const selectClassName =
   "h-11 w-full rounded-[14px] border border-white/10 bg-[var(--surface)] px-3.5 text-[15px] text-[var(--text)] outline-none transition focus:border-[rgba(10,132,255,0.55)] focus:shadow-[0_0_0_3px_rgba(10,132,255,0.18)]";
 
 export function OrderDetailsClient({ orderId }: { orderId: string }): React.JSX.Element {
+  const { showToast } = useToast();
   const [data, setData] = React.useState<OrderDetailsResponse["order"] | null>(null);
   const [me, setMe] = React.useState<MeResponse["me"] | null>(null);
   const [services, setServices] = React.useState<StaffService[]>([]);
@@ -301,12 +300,7 @@ export function OrderDetailsClient({ orderId }: { orderId: string }): React.JSX.
   const [auditActionFilter, setAuditActionFilter] = React.useState<AuditActionFilter>("ALL");
 
   const loadOrder = React.useCallback(async (): Promise<OrderDetailsResponse["order"]> => {
-    const orderResponse = await fetch(`/api/orders/${orderId}`, { cache: "no-store" });
-    if (!orderResponse.ok) {
-      throw new Error(await parseError(orderResponse));
-    }
-
-    const orderPayload = (await orderResponse.json()) as OrderDetailsResponse;
+    const orderPayload = await apiGet<OrderDetailsResponse>(`/api/orders/${orderId}`);
     return orderPayload.order;
   }, [orderId]);
 
@@ -331,16 +325,10 @@ export function OrderDetailsClient({ orderId }: { orderId: string }): React.JSX.
         params.set("action", auditActionFilter);
       }
 
-      const response = await fetch(`/api/orders/${orderId}/audit?${params.toString()}`, { cache: "no-store" });
-      if (!response.ok) {
-        setAuditError(await parseError(response));
-        return;
-      }
-
-      const payload = (await response.json()) as AuditListResponse;
+      const payload = await apiGet<AuditListResponse>(`/api/orders/${orderId}/audit?${params.toString()}`);
       setAudit(payload.audit);
-    } catch {
-      setAuditError("Ошибка сети. Попробуйте ещё раз");
+    } catch (error) {
+      setAuditError(error instanceof Error ? error.message : "Ошибка запроса");
     } finally {
       setAuditLoading(false);
     }
@@ -356,22 +344,14 @@ export function OrderDetailsClient({ orderId }: { orderId: string }): React.JSX.
       try {
         const [order, meResponse, servicesResponse, usersResponse] = await Promise.all([
           loadOrder(),
-          fetch("/api/me", { cache: "no-store" }),
-          fetch("/api/services", { cache: "no-store" }),
-          fetch("/api/users", { cache: "no-store" }),
+          apiGet<MeResponse>("/api/me"),
+          apiGet<ServicesResponse>("/api/services"),
+          apiGet<UsersResponse>("/api/users"),
         ]);
 
-        if (!meResponse.ok || !servicesResponse.ok || !usersResponse.ok) {
-          if (!active) return;
-
-          const failed = !meResponse.ok ? meResponse : !servicesResponse.ok ? servicesResponse : usersResponse;
-          setError(await parseError(failed));
-          return;
-        }
-
-        const mePayload = (await meResponse.json()) as MeResponse;
-        const servicesPayload = (await servicesResponse.json()) as ServicesResponse;
-        const usersPayload = (await usersResponse.json()) as UsersResponse;
+        const mePayload = meResponse;
+        const servicesPayload = servicesResponse;
+        const usersPayload = usersResponse;
 
         if (!active) return;
 
@@ -379,9 +359,9 @@ export function OrderDetailsClient({ orderId }: { orderId: string }): React.JSX.
         setMe(mePayload.me);
         setServices(servicesPayload.services);
         setUsers(usersPayload.users);
-      } catch {
+      } catch (error) {
         if (!active) return;
-        setError("Ошибка сети. Попробуйте ещё раз");
+        setError(error instanceof Error ? error.message : "Ошибка запроса");
       } finally {
         if (active) setLoading(false);
       }
@@ -430,22 +410,15 @@ export function OrderDetailsClient({ orderId }: { orderId: string }): React.JSX.
     setStatusLoading(true);
 
     try {
-      const response = await fetch(`/api/orders/${orderId}/status`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: nextStatus }),
-      });
-
-      if (!response.ok) {
-        setStatusError(await parseError(response));
-        return;
-      }
-
+      await apiPost<{ ok: true }>(`/api/orders/${orderId}/status`, { status: nextStatus });
       const refreshedOrder = await refreshOrder();
+      showToast("Статус обновлён");
       setStatusSheetOpen(false);
       setNextStatus(refreshedOrder.status);
-    } catch {
-      setStatusError("Ошибка сети. Попробуйте ещё раз");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Ошибка запроса";
+      setStatusError(message);
+      showToast(message, "error");
     } finally {
       setStatusLoading(false);
     }
@@ -505,21 +478,14 @@ export function OrderDetailsClient({ orderId }: { orderId: string }): React.JSX.
         return;
       }
 
-      const response = await fetch(`/api/orders/${data.id}/works/${endpoint}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-
-      if (!response.ok) {
-        setCreateError(await parseError(response));
-        return;
-      }
-
+      await apiPost<{ ok: true }>(`/api/orders/${data.id}/works/${endpoint}`, body);
       await refreshOrder();
+      showToast("Добавлено");
       setCreateSheetOpen(false);
-    } catch {
-      setCreateError("Ошибка сети. Попробуйте ещё раз");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Ошибка запроса";
+      setCreateError(message);
+      showToast(message, "error");
     } finally {
       setCreateLoading(false);
     }
@@ -577,22 +543,15 @@ export function OrderDetailsClient({ orderId }: { orderId: string }): React.JSX.
         }
       }
 
-      const response = await fetch(`/api/orders/${data.id}/works/${editingWork.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      if (!response.ok) {
-        setEditError(await parseError(response));
-        return;
-      }
-
+      await apiPatch<{ ok: true }>(`/api/orders/${data.id}/works/${editingWork.id}`, payload);
       await refreshOrder();
+      showToast("Сохранено");
       setEditSheetOpen(false);
       setEditingWork(null);
-    } catch {
-      setEditError("Ошибка сети. Попробуйте ещё раз");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Ошибка запроса";
+      setEditError(message);
+      showToast(message, "error");
     } finally {
       setEditLoading(false);
     }
@@ -605,15 +564,13 @@ export function OrderDetailsClient({ orderId }: { orderId: string }): React.JSX.
     setDeleteWorkId(workId);
 
     try {
-      const response = await fetch(`/api/orders/${data.id}/works/${workId}`, { method: "DELETE" });
-      if (!response.ok) {
-        setError(await parseError(response));
-        return;
-      }
-
+      await apiDelete<{ ok: true }>(`/api/orders/${data.id}/works/${workId}`);
       await refreshOrder();
-    } catch {
-      setError("Ошибка сети. Попробуйте ещё раз");
+      showToast("Удалено");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Ошибка запроса";
+      setError(message);
+      showToast(message, "error");
     } finally {
       setDeleteWorkId(null);
     }
@@ -672,21 +629,14 @@ export function OrderDetailsClient({ orderId }: { orderId: string }): React.JSX.
     setCreatePartError(null);
 
     try {
-      const response = await fetch(`/api/orders/${data.id}/parts`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, unitPriceCents, quantity }),
-      });
-
-      if (!response.ok) {
-        setCreatePartError(await parseError(response));
-        return;
-      }
-
+      await apiPost<{ ok: true }>(`/api/orders/${data.id}/parts`, { name, unitPriceCents, quantity });
       await refreshOrder();
+      showToast("Добавлено");
       setCreatePartSheetOpen(false);
-    } catch {
-      setCreatePartError("Ошибка сети. Попробуйте ещё раз");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Ошибка запроса";
+      setCreatePartError(message);
+      showToast(message, "error");
     } finally {
       setCreatePartLoading(false);
     }
@@ -722,22 +672,15 @@ export function OrderDetailsClient({ orderId }: { orderId: string }): React.JSX.
     setEditPartError(null);
 
     try {
-      const response = await fetch(`/api/orders/${data.id}/parts/${editingPart.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, unitPriceCents, quantity }),
-      });
-
-      if (!response.ok) {
-        setEditPartError(await parseError(response));
-        return;
-      }
-
+      await apiPatch<{ ok: true }>(`/api/orders/${data.id}/parts/${editingPart.id}`, { name, unitPriceCents, quantity });
       await refreshOrder();
+      showToast("Сохранено");
       setEditPartSheetOpen(false);
       setEditingPart(null);
-    } catch {
-      setEditPartError("Ошибка сети. Попробуйте ещё раз");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Ошибка запроса";
+      setEditPartError(message);
+      showToast(message, "error");
     } finally {
       setEditPartLoading(false);
     }
@@ -750,15 +693,13 @@ export function OrderDetailsClient({ orderId }: { orderId: string }): React.JSX.
     setDeletePartId(partId);
 
     try {
-      const response = await fetch(`/api/orders/${data.id}/parts/${partId}`, { method: "DELETE" });
-      if (!response.ok) {
-        setError(await parseError(response));
-        return;
-      }
-
+      await apiDelete<{ ok: true }>(`/api/orders/${data.id}/parts/${partId}`);
       await refreshOrder();
-    } catch {
-      setError("Ошибка сети. Попробуйте ещё раз");
+      showToast("Удалено");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Ошибка запроса";
+      setError(message);
+      showToast(message, "error");
     } finally {
       setDeletePartId(null);
     }
@@ -804,25 +745,19 @@ export function OrderDetailsClient({ orderId }: { orderId: string }): React.JSX.
     setCreateExpenseError(null);
 
     try {
-      const response = await fetch(`/api/orders/${data.id}/expenses`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title: createExpenseTitle.trim(),
-          amountCents,
-          ...(createExpenseDate ? { expenseDate: createExpenseDate } : {}),
-        }),
+      await apiPost<{ ok: true }>(`/api/orders/${data.id}/expenses`, {
+        title: createExpenseTitle.trim(),
+        amountCents,
+        ...(createExpenseDate ? { expenseDate: createExpenseDate } : {}),
       });
 
-      if (!response.ok) {
-        setCreateExpenseError(await parseError(response));
-        return;
-      }
-
       await refreshOrder();
+      showToast("Добавлено");
       setCreateExpenseSheetOpen(false);
-    } catch {
-      setCreateExpenseError("Ошибка сети. Попробуйте ещё раз");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Ошибка запроса";
+      setCreateExpenseError(message);
+      showToast(message, "error");
     } finally {
       setCreateExpenseLoading(false);
     }
@@ -860,26 +795,20 @@ export function OrderDetailsClient({ orderId }: { orderId: string }): React.JSX.
     setEditExpenseError(null);
 
     try {
-      const response = await fetch(`/api/orders/${data.id}/expenses/${editingExpense.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title: editExpenseTitle.trim(),
-          amountCents,
-          expenseDate: editExpenseDate,
-        }),
+      await apiPatch<{ ok: true }>(`/api/orders/${data.id}/expenses/${editingExpense.id}`, {
+        title: editExpenseTitle.trim(),
+        amountCents,
+        expenseDate: editExpenseDate,
       });
 
-      if (!response.ok) {
-        setEditExpenseError(await parseError(response));
-        return;
-      }
-
       await refreshOrder();
+      showToast("Сохранено");
       setEditExpenseSheetOpen(false);
       setEditingExpense(null);
-    } catch {
-      setEditExpenseError("Ошибка сети. Попробуйте ещё раз");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Ошибка запроса";
+      setEditExpenseError(message);
+      showToast(message, "error");
     } finally {
       setEditExpenseLoading(false);
     }
@@ -892,15 +821,13 @@ export function OrderDetailsClient({ orderId }: { orderId: string }): React.JSX.
     setDeleteExpenseId(expense.id);
 
     try {
-      const response = await fetch(`/api/orders/${data.id}/expenses/${expense.id}`, { method: "DELETE" });
-      if (!response.ok) {
-        setError(await parseError(response));
-        return;
-      }
-
+      await apiDelete<{ ok: true }>(`/api/orders/${data.id}/expenses/${expense.id}`);
       await refreshOrder();
-    } catch {
-      setError("Ошибка сети. Попробуйте ещё раз");
+      showToast("Удалено");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Ошибка запроса";
+      setError(message);
+      showToast(message, "error");
     } finally {
       setDeleteExpenseId(null);
     }
@@ -922,21 +849,14 @@ export function OrderDetailsClient({ orderId }: { orderId: string }): React.JSX.
     setCreateCommentError(null);
 
     try {
-      const response = await fetch(`/api/orders/${data.id}/comments`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text }),
-      });
-
-      if (!response.ok) {
-        setCreateCommentError(await parseError(response));
-        return;
-      }
-
+      await apiPost<{ ok: true }>(`/api/orders/${data.id}/comments`, { text });
       setNewCommentText("");
       await refreshOrder();
-    } catch {
-      setCreateCommentError("Ошибка сети. Попробуйте ещё раз");
+      showToast("Добавлено");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Ошибка запроса";
+      setCreateCommentError(message);
+      showToast(message, "error");
     } finally {
       setCreateCommentLoading(false);
     }
@@ -967,7 +887,7 @@ export function OrderDetailsClient({ orderId }: { orderId: string }): React.JSX.
     );
   }
 
-  const isLocked = data.status === OrderStatus.PAID;
+  const isLocked = isPaidLocked(data);
   const cannotChangeStatus = isLocked && !me.isAdmin;
 
   return (
@@ -979,7 +899,7 @@ export function OrderDetailsClient({ orderId }: { orderId: string }): React.JSX.
             {data.guitarSerial ? <p className="mt-1 text-sm text-[var(--muted)]">S/N: {data.guitarSerial}</p> : null}
           </div>
           <div className="flex flex-col items-end gap-2">
-            <Badge variant={OrderStatusBadgeVariant[data.status]}>{OrderStatusLabel[data.status]}</Badge>
+            <OrderStatusBadge status={data.status} />
 
             <Sheet
               open={statusSheetOpen}
@@ -1009,7 +929,7 @@ export function OrderDetailsClient({ orderId }: { orderId: string }): React.JSX.
 
                 <div className="space-y-2">
                   {orderStatusOptions.map((statusOption) => {
-                    const disabledOption = cannotChangeStatus || (!me.isAdmin && statusOption.value === OrderStatus.PAID);
+                    const disabledOption = cannotChangeStatus || (!me.isAdmin && statusOption.value === "PAID");
 
                     return (
                       <label
@@ -1018,7 +938,7 @@ export function OrderDetailsClient({ orderId }: { orderId: string }): React.JSX.
                       >
                         <div>
                           <p className="text-sm text-[var(--text)]">{statusOption.label}</p>
-                          {!me.isAdmin && statusOption.value === OrderStatus.PAID ? (
+                          {!me.isAdmin && statusOption.value === "PAID" ? (
                             <p className="text-xs text-[var(--muted-2)]">Только для админа</p>
                           ) : null}
                         </div>
@@ -1445,14 +1365,14 @@ export function OrderDetailsClient({ orderId }: { orderId: string }): React.JSX.
                     onChange={(event) => setAuditEntityFilter(event.target.value as AuditEntityFilter)}
                   >
                     <option value="ALL">Все</option>
-                    <option value={AuditEntity.ORDER}>ORDER</option>
-                    <option value={AuditEntity.ORDER_WORK}>ORDER_WORK</option>
-                    <option value={AuditEntity.ORDER_PART}>ORDER_PART</option>
-                    <option value={AuditEntity.EXPENSE}>EXPENSE</option>
-                    <option value={AuditEntity.COMMENT}>COMMENT</option>
-                    <option value={AuditEntity.USER}>USER</option>
-                    <option value={AuditEntity.SERVICE}>SERVICE</option>
-                    <option value={AuditEntity.AUTH}>AUTH</option>
+                    <option value={"ORDER"}>ORDER</option>
+                    <option value={"ORDER_WORK"}>ORDER_WORK</option>
+                    <option value={"ORDER_PART"}>ORDER_PART</option>
+                    <option value={"EXPENSE"}>EXPENSE</option>
+                    <option value={"COMMENT"}>COMMENT</option>
+                    <option value={"USER"}>USER</option>
+                    <option value={"SERVICE"}>SERVICE</option>
+                    <option value={"AUTH"}>AUTH</option>
                   </select>
                 </div>
 
@@ -1465,12 +1385,12 @@ export function OrderDetailsClient({ orderId }: { orderId: string }): React.JSX.
                     onChange={(event) => setAuditActionFilter(event.target.value as AuditActionFilter)}
                   >
                     <option value="ALL">Все</option>
-                    <option value={AuditAction.CREATE}>CREATE</option>
-                    <option value={AuditAction.UPDATE}>UPDATE</option>
-                    <option value={AuditAction.DELETE}>DELETE</option>
-                    <option value={AuditAction.STATUS_CHANGE}>STATUS_CHANGE</option>
-                    <option value={AuditAction.LOGIN}>LOGIN</option>
-                    <option value={AuditAction.LOGOUT}>LOGOUT</option>
+                    <option value={"CREATE"}>CREATE</option>
+                    <option value={"UPDATE"}>UPDATE</option>
+                    <option value={"DELETE"}>DELETE</option>
+                    <option value={"STATUS_CHANGE"}>STATUS_CHANGE</option>
+                    <option value={"LOGIN"}>LOGIN</option>
+                    <option value={"LOGOUT"}>LOGOUT</option>
                   </select>
                 </div>
 

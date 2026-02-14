@@ -1,17 +1,19 @@
 "use client";
 
-import { OrderStatus } from "@prisma/client";
+import type { OrderStatus } from "@prisma/client";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import * as React from "react";
 
-import { Badge } from "@/components/ui/Badge";
+import { OrderStatusBadge } from "@/components/orders/OrderStatusBadge";
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { ErrorText, Input, Label, TextArea } from "@/components/ui/Input";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/Sheet";
+import { useToast } from "@/components/ui/Toast";
+import { apiGet, apiPost } from "@/lib/http/api";
 import { formatRub } from "@/lib/money";
-import { OrderStatusBadgeVariant, OrderStatusLabel, orderStatusOptions } from "@/lib/orderStatus";
+import { orderStatusOptions } from "@/lib/orderStatus";
 
 type OrderListItem = {
   id: string;
@@ -30,16 +32,6 @@ type OrderListItem = {
   } | null;
 };
 
-type ApiError = {
-  ok?: false;
-  message?: string;
-};
-
-async function parseError(response: Response): Promise<string> {
-  const data = (await response.json().catch(() => null)) as ApiError | null;
-  return data?.message ?? "Не удалось загрузить заказы";
-}
-
 function formatDate(value: string): string {
   return new Date(value).toLocaleString("ru-RU", {
     day: "2-digit",
@@ -52,6 +44,7 @@ function formatDate(value: string): string {
 
 export function OrdersClient(): React.JSX.Element {
   const router = useRouter();
+  const { showToast } = useToast();
 
   const [search, setSearch] = React.useState("");
   const [statuses, setStatuses] = React.useState<OrderStatus[]>([]);
@@ -86,16 +79,10 @@ export function OrdersClient(): React.JSX.Element {
         params.set("mine", "1");
       }
 
-      const response = await fetch(`/api/orders?${params.toString()}`, { cache: "no-store" });
-      if (!response.ok) {
-        setError(await parseError(response));
-        return;
-      }
-
-      const data = (await response.json()) as { ok: true; orders: OrderListItem[] };
+      const data = await apiGet<{ ok: true; orders: OrderListItem[] }>(`/api/orders?${params.toString()}`);
       setOrders(data.orders);
-    } catch {
-      setError("Ошибка сети. Попробуйте ещё раз");
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Ошибка запроса");
     } finally {
       setIsLoading(false);
     }
@@ -122,30 +109,21 @@ export function OrdersClient(): React.JSX.Element {
     setCreateLoading(true);
 
     try {
-      const response = await fetch("/api/orders", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title: cleanTitle,
-          guitarSerial,
-          description,
-        }),
+      const data = await apiPost<{ ok: true; order: { id: string } }>("/api/orders", {
+        title: cleanTitle,
+        guitarSerial,
+        description,
       });
-
-      if (!response.ok) {
-        setCreateError(await parseError(response));
-        return;
-      }
-
-      const data = (await response.json()) as { ok: true; order: { id: string } };
 
       setCreateOpen(false);
       setTitle("");
       setGuitarSerial("");
       setDescription("");
+      showToast("Добавлено");
       router.push(`/orders/${data.order.id}`);
-    } catch {
-      setCreateError("Ошибка сети. Попробуйте ещё раз");
+    } catch (error) {
+      setCreateError(error instanceof Error ? error.message : "Ошибка запроса");
+      showToast(error instanceof Error ? error.message : "Ошибка запроса", "error");
     } finally {
       setCreateLoading(false);
     }
@@ -302,7 +280,7 @@ export function OrdersClient(): React.JSX.Element {
                       <p className="mt-1 truncate text-xs text-[var(--muted)]">S/N: {order.guitarSerial}</p>
                     ) : null}
                   </div>
-                  <Badge variant={OrderStatusBadgeVariant[order.status]}>{OrderStatusLabel[order.status]}</Badge>
+                  <OrderStatusBadge status={order.status} />
                 </CardHeader>
 
                 <CardContent className="space-y-1 text-sm">
