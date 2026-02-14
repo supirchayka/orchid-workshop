@@ -1,5 +1,5 @@
-import { OrderStatus } from "@prisma/client";
+import type { OrderStatus } from "@prisma/client";
 
 export function isPaidLocked(order: { status: OrderStatus }): boolean {
-  return order.status === OrderStatus.PAID;
+  return order.status === "PAID";
 }

@@ -1,6 +1,5 @@
 "use client";
 
-import { AuditAction, AuditEntity, OrderStatus } from "@prisma/client";
 import * as React from "react";
 
 import { OrderStatusBadge } from "@/components/orders/OrderStatusBadge";
@@ -15,6 +14,12 @@ import { apiDelete, apiGet, apiPatch, apiPost } from "@/lib/http/api";
 import { formatRub, parseRubToCents } from "@/lib/money";
 import { orderStatusOptions } from "@/lib/orderStatus";
 import { isPaidLocked } from "@/lib/orders/isLocked";
+
+type OrderStatus = "NEW" | "IN_PROGRESS" | "WAITING_PARTS" | "READY_FOR_PICKUP" | "PAID";
+
+type AuditAction = "CREATE" | "UPDATE" | "DELETE" | "STATUS_CHANGE" | "LOGIN" | "LOGOUT";
+
+type AuditEntity = "ORDER" | "ORDER_WORK" | "ORDER_PART" | "EXPENSE" | "COMMENT" | "USER" | "SERVICE" | "AUTH";
 
 type MeResponse = {
   ok: true;
@@ -924,7 +929,7 @@ export function OrderDetailsClient({ orderId }: { orderId: string }): React.JSX.
 
                 <div className="space-y-2">
                   {orderStatusOptions.map((statusOption) => {
-                    const disabledOption = cannotChangeStatus || (!me.isAdmin && statusOption.value === OrderStatus.PAID);
+                    const disabledOption = cannotChangeStatus || (!me.isAdmin && statusOption.value === "PAID");
 
                     return (
                       <label
@@ -933,7 +938,7 @@ export function OrderDetailsClient({ orderId }: { orderId: string }): React.JSX.
                       >
                         <div>
                           <p className="text-sm text-[var(--text)]">{statusOption.label}</p>
-                          {!me.isAdmin && statusOption.value === OrderStatus.PAID ? (
+                          {!me.isAdmin && statusOption.value === "PAID" ? (
                             <p className="text-xs text-[var(--muted-2)]">Только для админа</p>
                           ) : null}
                         </div>
@@ -1360,14 +1365,14 @@ export function OrderDetailsClient({ orderId }: { orderId: string }): React.JSX.
                     onChange={(event) => setAuditEntityFilter(event.target.value as AuditEntityFilter)}
                   >
                     <option value="ALL">Все</option>
-                    <option value={AuditEntity.ORDER}>ORDER</option>
-                    <option value={AuditEntity.ORDER_WORK}>ORDER_WORK</option>
-                    <option value={AuditEntity.ORDER_PART}>ORDER_PART</option>
-                    <option value={AuditEntity.EXPENSE}>EXPENSE</option>
-                    <option value={AuditEntity.COMMENT}>COMMENT</option>
-                    <option value={AuditEntity.USER}>USER</option>
-                    <option value={AuditEntity.SERVICE}>SERVICE</option>
-                    <option value={AuditEntity.AUTH}>AUTH</option>
+                    <option value={"ORDER"}>ORDER</option>
+                    <option value={"ORDER_WORK"}>ORDER_WORK</option>
+                    <option value={"ORDER_PART"}>ORDER_PART</option>
+                    <option value={"EXPENSE"}>EXPENSE</option>
+                    <option value={"COMMENT"}>COMMENT</option>
+                    <option value={"USER"}>USER</option>
+                    <option value={"SERVICE"}>SERVICE</option>
+                    <option value={"AUTH"}>AUTH</option>
                   </select>
                 </div>
 
@@ -1380,12 +1385,12 @@ export function OrderDetailsClient({ orderId }: { orderId: string }): React.JSX.
                     onChange={(event) => setAuditActionFilter(event.target.value as AuditActionFilter)}
                   >
                     <option value="ALL">Все</option>
-                    <option value={AuditAction.CREATE}>CREATE</option>
-                    <option value={AuditAction.UPDATE}>UPDATE</option>
-                    <option value={AuditAction.DELETE}>DELETE</option>
-                    <option value={AuditAction.STATUS_CHANGE}>STATUS_CHANGE</option>
-                    <option value={AuditAction.LOGIN}>LOGIN</option>
-                    <option value={AuditAction.LOGOUT}>LOGOUT</option>
+                    <option value={"CREATE"}>CREATE</option>
+                    <option value={"UPDATE"}>UPDATE</option>
+                    <option value={"DELETE"}>DELETE</option>
+                    <option value={"STATUS_CHANGE"}>STATUS_CHANGE</option>
+                    <option value={"LOGIN"}>LOGIN</option>
+                    <option value={"LOGOUT"}>LOGOUT</option>
                   </select>
                 </div>
 
