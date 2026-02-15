@@ -1,8 +1,19 @@
+import { AuditAction, AuditEntity, Prisma } from "@prisma/client";
+import { z } from "zod";
+import { requireSession } from "@/lib/auth/guards";
 import { httpError, toHttpError } from "@/lib/http/errors";
+import { assertOrderMutable } from "@/lib/orders/locks";
+import { recalcOrderTotalsTx } from "@/lib/orders/recalc";
+import { prisma } from "@/lib/prisma";
 
-const message = "Расходы в заказе отключены. Редактируйте только общие расходы мастерской.";
+const isoDateOrDateTimeSchema = z
+  .string()
+  .trim()
+  .refine((value) => {
+    if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+      return !Number.isNaN(new Date(`${value}T00:00:00.000Z`).getTime());
+    }
 
-<<<<<<< HEAD
     return !Number.isNaN(new Date(value).getTime());
   }, "Укажите корректную дату")
   .transform((value) => {
@@ -23,10 +34,9 @@ const updateExpenseBodySchema = z
     message: "Передайте хотя бы одно поле для обновления",
   });
 
-export async function PATCH(req: Request, { params }: { params: Promise<{ id: string; expenseId: string }> }) {
+export async function PATCH(req: Request, { params }: { params: { id: string; expenseId: string } }) {
   try {
     const session = await requireSession();
-    const routeParams = await params;
 
     const json = await req.json().catch(() => null);
     const parsed = updateExpenseBodySchema.safeParse(json);
@@ -37,7 +47,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
     const expense = await prisma.$transaction(async (tx) => {
       const order = await tx.order.findUnique({
-        where: { id: routeParams.id },
+        where: { id: params.id },
         select: { id: true, status: true },
       });
 
@@ -48,7 +58,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       assertOrderMutable(order);
 
       const existingExpense = await tx.expense.findFirst({
-        where: { id: routeParams.expenseId, orderId: order.id },
+        where: { id: params.expenseId, orderId: order.id },
         select: {
           id: true,
           title: true,
@@ -126,25 +136,18 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     });
 
     return Response.json({ ok: true, expense });
-=======
-export async function PATCH() {
-  try {
-    return httpError(400, message);
->>>>>>> f6a9cc6044424b3c60791f8492b5be977df4236f
   } catch (e) {
     return toHttpError(e);
   }
 }
 
-<<<<<<< HEAD
-export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string; expenseId: string }> }) {
+export async function DELETE(_req: Request, { params }: { params: { id: string; expenseId: string } }) {
   try {
     const session = await requireSession();
-    const routeParams = await params;
 
     await prisma.$transaction(async (tx) => {
       const order = await tx.order.findUnique({
-        where: { id: routeParams.id },
+        where: { id: params.id },
         select: { id: true, status: true },
       });
 
@@ -155,7 +158,7 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
       assertOrderMutable(order);
 
       const existingExpense = await tx.expense.findFirst({
-        where: { id: routeParams.expenseId, orderId: order.id },
+        where: { id: params.expenseId, orderId: order.id },
         select: { id: true, createdById: true },
       });
 
@@ -188,11 +191,6 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
     });
 
     return Response.json({ ok: true });
-=======
-export async function DELETE() {
-  try {
-    return httpError(400, message);
->>>>>>> f6a9cc6044424b3c60791f8492b5be977df4236f
   } catch (e) {
     return toHttpError(e);
   }
