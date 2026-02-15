@@ -1,19 +1,8 @@
-import { AuditAction, AuditEntity, Prisma } from "@prisma/client";
-import { z } from "zod";
-import { requireSession } from "@/lib/auth/guards";
 import { httpError, toHttpError } from "@/lib/http/errors";
-import { assertOrderMutable } from "@/lib/orders/locks";
-import { recalcOrderTotalsTx } from "@/lib/orders/recalc";
-import { prisma } from "@/lib/prisma";
 
-const isoDateOrDateTimeSchema = z
-  .string()
-  .trim()
-  .refine((value) => {
-    if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
-      return !Number.isNaN(new Date(`${value}T00:00:00.000Z`).getTime());
-    }
+const message = "Расходы в заказе отключены. Редактируйте только общие расходы мастерской.";
 
+<<<<<<< HEAD
     return !Number.isNaN(new Date(value).getTime());
   }, "Укажите корректную дату")
   .transform((value) => {
@@ -137,11 +126,17 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     });
 
     return Response.json({ ok: true, expense });
+=======
+export async function PATCH() {
+  try {
+    return httpError(400, message);
+>>>>>>> f6a9cc6044424b3c60791f8492b5be977df4236f
   } catch (e) {
     return toHttpError(e);
   }
 }
 
+<<<<<<< HEAD
 export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string; expenseId: string }> }) {
   try {
     const session = await requireSession();
@@ -193,6 +188,11 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
     });
 
     return Response.json({ ok: true });
+=======
+export async function DELETE() {
+  try {
+    return httpError(400, message);
+>>>>>>> f6a9cc6044424b3c60791f8492b5be977df4236f
   } catch (e) {
     return toHttpError(e);
   }

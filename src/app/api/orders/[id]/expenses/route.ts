@@ -1,11 +1,6 @@
-import { AuditAction, AuditEntity, Prisma } from "@prisma/client";
-import { z } from "zod";
-import { requireSession } from "@/lib/auth/guards";
 import { httpError, toHttpError } from "@/lib/http/errors";
-import { assertOrderMutable } from "@/lib/orders/locks";
-import { recalcOrderTotalsTx } from "@/lib/orders/recalc";
-import { prisma } from "@/lib/prisma";
 
+<<<<<<< HEAD
 const isoDateOrDateTimeSchema = z
   .string()
   .trim()
@@ -96,6 +91,11 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     });
 
     return Response.json({ ok: true, expense: { id: expense.id } });
+=======
+export async function POST() {
+  try {
+    return httpError(400, "Расходы в заказе отключены. Добавляйте только общие расходы мастерской.");
+>>>>>>> f6a9cc6044424b3c60791f8492b5be977df4236f
   } catch (e) {
     return toHttpError(e);
   }
