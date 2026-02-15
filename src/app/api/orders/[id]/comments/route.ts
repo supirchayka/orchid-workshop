@@ -9,12 +9,13 @@ const createCommentBodySchema = z.object({
   text: z.string().trim().min(1, "Введите комментарий").max(2000, "Максимум 2000 символов"),
 });
 
-export async function GET(_req: Request, { params }: { params: { id: string } }) {
+export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     await requireSession();
+    const routeParams = await params;
 
     const order = await prisma.order.findUnique({
-      where: { id: params.id },
+      where: { id: routeParams.id },
       select: { id: true },
     });
 
@@ -47,9 +48,10 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
   }
 }
 
-export async function POST(req: Request, { params }: { params: { id: string } }) {
+export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await requireSession();
+    const routeParams = await params;
 
     const json = await req.json().catch(() => null);
     const parsed = createCommentBodySchema.safeParse(json);
@@ -60,7 +62,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
 
     const comment = await prisma.$transaction(async (tx) => {
       const order = await tx.order.findUnique({
-        where: { id: params.id },
+        where: { id: routeParams.id },
         select: { id: true, status: true },
       });
 

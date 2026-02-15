@@ -13,9 +13,10 @@ const createPartBodySchema = z.object({
   costCents: z.number().int().min(0).optional(),
 });
 
-export async function POST(req: Request, { params }: { params: { id: string } }) {
+export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await requireSession();
+    const routeParams = await params;
 
     const json = await req.json().catch(() => null);
     const parsed = createPartBodySchema.safeParse(json);
@@ -26,7 +27,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
 
     const part = await prisma.$transaction(async (tx) => {
       const order = await tx.order.findUnique({
-        where: { id: params.id },
+        where: { id: routeParams.id },
         select: { id: true, status: true },
       });
 

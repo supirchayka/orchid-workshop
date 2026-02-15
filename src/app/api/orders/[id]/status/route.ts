@@ -10,9 +10,10 @@ const updateOrderStatusBodySchema = z.object({
   status: z.nativeEnum(OrderStatus),
 });
 
-export async function POST(req: Request, { params }: { params: { id: string } }) {
+export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await requireSession();
+    const routeParams = await params;
 
     const json = await req.json().catch(() => null);
     const parsed = updateOrderStatusBodySchema.safeParse(json);
@@ -21,7 +22,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     }
 
     const order = await prisma.order.findUnique({
-      where: { id: params.id },
+      where: { id: routeParams.id },
       select: {
         id: true,
         status: true,

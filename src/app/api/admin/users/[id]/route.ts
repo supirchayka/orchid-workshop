@@ -15,12 +15,13 @@ const userSelect = {
   updatedAt: true,
 } as const;
 
-export async function PATCH(req: Request, { params }: { params: { id: string } }) {
+export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await requireSession();
+    const routeParams = await params;
     requireAdmin(session);
 
-    const { id } = params;
+    const { id } = routeParams;
 
     const json = await req.json().catch(() => null);
     const parsed = updateUserBodySchema.safeParse(json);

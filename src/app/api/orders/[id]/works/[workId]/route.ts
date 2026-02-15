@@ -18,9 +18,10 @@ const updateWorkBodySchema = z
     message: "Передайте хотя бы одно поле для обновления",
   });
 
-export async function PATCH(req: Request, { params }: { params: { id: string; workId: string } }) {
+export async function PATCH(req: Request, { params }: { params: Promise<{ id: string; workId: string }> }) {
   try {
     const session = await requireSession();
+    const routeParams = await params;
 
     const json = await req.json().catch(() => null);
     const parsed = updateWorkBodySchema.safeParse(json);
@@ -30,7 +31,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string; wo
 
     const work = await prisma.$transaction(async (tx) => {
       const order = await tx.order.findUnique({
-        where: { id: params.id },
+        where: { id: routeParams.id },
         select: { id: true, status: true },
       });
 
@@ -41,7 +42,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string; wo
       assertOrderMutable(order);
 
       const existingWork = await tx.orderWork.findFirst({
-        where: { id: params.workId, orderId: order.id },
+        where: { id: routeParams.workId, orderId: order.id },
         select: {
           id: true,
           orderId: true,
@@ -162,13 +163,14 @@ export async function PATCH(req: Request, { params }: { params: { id: string; wo
   }
 }
 
-export async function DELETE(_req: Request, { params }: { params: { id: string; workId: string } }) {
+export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string; workId: string }> }) {
   try {
     const session = await requireSession();
+    const routeParams = await params;
 
     await prisma.$transaction(async (tx) => {
       const order = await tx.order.findUnique({
-        where: { id: params.id },
+        where: { id: routeParams.id },
         select: { id: true, status: true },
       });
 
@@ -179,7 +181,7 @@ export async function DELETE(_req: Request, { params }: { params: { id: string; 
       assertOrderMutable(order);
 
       const existingWork = await tx.orderWork.findFirst({
-        where: { id: params.workId, orderId: order.id },
+        where: { id: routeParams.workId, orderId: order.id },
         select: { id: true },
       });
 

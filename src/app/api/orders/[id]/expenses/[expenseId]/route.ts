@@ -34,9 +34,10 @@ const updateExpenseBodySchema = z
     message: "Передайте хотя бы одно поле для обновления",
   });
 
-export async function PATCH(req: Request, { params }: { params: { id: string; expenseId: string } }) {
+export async function PATCH(req: Request, { params }: { params: Promise<{ id: string; expenseId: string }> }) {
   try {
     const session = await requireSession();
+    const routeParams = await params;
 
     const json = await req.json().catch(() => null);
     const parsed = updateExpenseBodySchema.safeParse(json);
@@ -47,7 +48,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string; ex
 
     const expense = await prisma.$transaction(async (tx) => {
       const order = await tx.order.findUnique({
-        where: { id: params.id },
+        where: { id: routeParams.id },
         select: { id: true, status: true },
       });
 
@@ -58,7 +59,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string; ex
       assertOrderMutable(order);
 
       const existingExpense = await tx.expense.findFirst({
-        where: { id: params.expenseId, orderId: order.id },
+        where: { id: routeParams.expenseId, orderId: order.id },
         select: {
           id: true,
           title: true,
@@ -141,13 +142,14 @@ export async function PATCH(req: Request, { params }: { params: { id: string; ex
   }
 }
 
-export async function DELETE(_req: Request, { params }: { params: { id: string; expenseId: string } }) {
+export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string; expenseId: string }> }) {
   try {
     const session = await requireSession();
+    const routeParams = await params;
 
     await prisma.$transaction(async (tx) => {
       const order = await tx.order.findUnique({
-        where: { id: params.id },
+        where: { id: routeParams.id },
         select: { id: true, status: true },
       });
 
@@ -158,7 +160,7 @@ export async function DELETE(_req: Request, { params }: { params: { id: string; 
       assertOrderMutable(order);
 
       const existingExpense = await tx.expense.findFirst({
-        where: { id: params.expenseId, orderId: order.id },
+        where: { id: routeParams.expenseId, orderId: order.id },
         select: { id: true, createdById: true },
       });
 

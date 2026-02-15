@@ -30,9 +30,10 @@ const createExpenseBodySchema = z.object({
   expenseDate: isoDateOrDateTimeSchema.optional(),
 });
 
-export async function POST(req: Request, { params }: { params: { id: string } }) {
+export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await requireSession();
+    const routeParams = await params;
 
     const json = await req.json().catch(() => null);
     const parsed = createExpenseBodySchema.safeParse(json);
@@ -43,7 +44,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
 
     const expense = await prisma.$transaction(async (tx) => {
       const order = await tx.order.findUnique({
-        where: { id: params.id },
+        where: { id: routeParams.id },
         select: { id: true, status: true },
       });
 

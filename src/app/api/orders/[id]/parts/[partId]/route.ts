@@ -17,9 +17,10 @@ const updatePartBodySchema = z
     message: "Передайте хотя бы одно поле для обновления",
   });
 
-export async function PATCH(req: Request, { params }: { params: { id: string; partId: string } }) {
+export async function PATCH(req: Request, { params }: { params: Promise<{ id: string; partId: string }> }) {
   try {
     const session = await requireSession();
+    const routeParams = await params;
 
     const json = await req.json().catch(() => null);
     const parsed = updatePartBodySchema.safeParse(json);
@@ -30,7 +31,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string; pa
 
     const part = await prisma.$transaction(async (tx) => {
       const order = await tx.order.findUnique({
-        where: { id: params.id },
+        where: { id: routeParams.id },
         select: { id: true, status: true },
       });
 
@@ -41,7 +42,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string; pa
       assertOrderMutable(order);
 
       const existingPart = await tx.orderPart.findFirst({
-        where: { id: params.partId, orderId: order.id },
+        where: { id: routeParams.partId, orderId: order.id },
         select: {
           id: true,
           name: true,
@@ -117,13 +118,14 @@ export async function PATCH(req: Request, { params }: { params: { id: string; pa
   }
 }
 
-export async function DELETE(_req: Request, { params }: { params: { id: string; partId: string } }) {
+export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string; partId: string }> }) {
   try {
     const session = await requireSession();
+    const routeParams = await params;
 
     await prisma.$transaction(async (tx) => {
       const order = await tx.order.findUnique({
-        where: { id: params.id },
+        where: { id: routeParams.id },
         select: { id: true, status: true },
       });
 
@@ -134,7 +136,7 @@ export async function DELETE(_req: Request, { params }: { params: { id: string; 
       assertOrderMutable(order);
 
       const existingPart = await tx.orderPart.findFirst({
-        where: { id: params.partId, orderId: order.id },
+        where: { id: routeParams.partId, orderId: order.id },
         select: { id: true },
       });
 

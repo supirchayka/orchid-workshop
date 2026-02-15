@@ -10,9 +10,10 @@ const querySchema = z.object({
   action: z.nativeEnum(AuditAction).optional(),
 });
 
-export async function GET(req: Request, { params }: { params: { id: string } }) {
+export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     await requireSession();
+    const routeParams = await params;
 
     const url = new URL(req.url);
     const parsed = querySchema.safeParse({
@@ -26,7 +27,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
     }
 
     const order = await prisma.order.findUnique({
-      where: { id: params.id },
+      where: { id: routeParams.id },
       select: { id: true },
     });
 

@@ -6,12 +6,13 @@ import { writeAudit } from "@/lib/audit/writeAudit";
 import { hashPassword } from "@/lib/auth/password";
 import { resetPasswordBodySchema } from "@/lib/admin/users.schema";
 
-export async function POST(req: Request, { params }: { params: { id: string } }) {
+export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await requireSession();
+    const routeParams = await params;
     requireAdmin(session);
 
-    const { id } = params;
+    const { id } = routeParams;
 
     const json = await req.json().catch(() => null);
     const parsed = resetPasswordBodySchema.safeParse(json);

@@ -32,9 +32,10 @@ const updateExpenseBodySchema = z
     message: "Передайте хотя бы одно поле для обновления",
   });
 
-export async function PATCH(req: Request, { params }: { params: { id: string } }) {
+export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await requireSession();
+    const routeParams = await params;
     requireAdmin(session);
 
     const json = await req.json().catch(() => null);
@@ -46,7 +47,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
 
     const expense = await prisma.$transaction(async (tx) => {
       const existingExpense = await tx.expense.findFirst({
-        where: { id: params.id, orderId: null },
+        where: { id: routeParams.id, orderId: null },
         select: {
           id: true,
           title: true,
@@ -116,14 +117,15 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   }
 }
 
-export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
+export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await requireSession();
+    const routeParams = await params;
     requireAdmin(session);
 
     await prisma.$transaction(async (tx) => {
       const existingExpense = await tx.expense.findFirst({
-        where: { id: params.id, orderId: null },
+        where: { id: routeParams.id, orderId: null },
         select: { id: true },
       });
 

@@ -17,12 +17,13 @@ const serviceSelect = {
 type ServiceChangedValue = string | number | boolean;
 type ServiceDiff = Record<string, { from: ServiceChangedValue; to: ServiceChangedValue }>;
 
-export async function PATCH(req: Request, { params }: { params: { id: string } }) {
+export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await requireSession();
+    const routeParams = await params;
     requireAdmin(session);
 
-    const { id } = params;
+    const { id } = routeParams;
 
     const json = await req.json().catch(() => null);
     const parsed = updateServiceBodySchema.safeParse(json);
