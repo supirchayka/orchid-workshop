@@ -31,7 +31,7 @@ type BucketRow = {
 };
 
 type ByMasterRow = {
-  performerId: string;
+  performerId: number;
   performerName: string;
   laborCents: bigint | number | null;
   commissionCents: bigint | number | null;

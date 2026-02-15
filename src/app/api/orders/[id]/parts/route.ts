@@ -2,6 +2,7 @@ import { AuditAction, AuditEntity, Prisma } from "@prisma/client";
 import { z } from "zod";
 import { requireSession } from "@/lib/auth/guards";
 import { httpError, toHttpError } from "@/lib/http/errors";
+import { parseRouteInt } from "@/lib/http/ids";
 import { assertOrderMutable } from "@/lib/orders/locks";
 import { recalcOrderTotalsTx } from "@/lib/orders/recalc";
 import { prisma } from "@/lib/prisma";
@@ -17,6 +18,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   try {
     const session = await requireSession();
     const routeParams = await params;
+    const orderId = parseRouteInt(routeParams.id, "id");
 
     const json = await req.json().catch(() => null);
     const parsed = createPartBodySchema.safeParse(json);
@@ -27,7 +29,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
     const part = await prisma.$transaction(async (tx) => {
       const order = await tx.order.findUnique({
-        where: { id: routeParams.id },
+        where: { id: orderId },
         select: { id: true, status: true },
       });
 

@@ -3,6 +3,7 @@ import { requireAdmin, requireSession } from "@/lib/auth/guards";
 import { writeAudit } from "@/lib/audit/writeAudit";
 import { updateServiceBodySchema } from "@/lib/admin/services.schema";
 import { httpError, toHttpError } from "@/lib/http/errors";
+import { parseRouteInt } from "@/lib/http/ids";
 import { prisma } from "@/lib/prisma";
 
 const serviceSelect = {
@@ -23,7 +24,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     const routeParams = await params;
     requireAdmin(session);
 
-    const { id } = routeParams;
+    const id = parseRouteInt(routeParams.id, "id");
 
     const json = await req.json().catch(() => null);
     const parsed = updateServiceBodySchema.safeParse(json);

@@ -3,6 +3,7 @@ import { z } from "zod";
 import { writeAudit } from "@/lib/audit/writeAudit";
 import { requireSession } from "@/lib/auth/guards";
 import { httpError, toHttpError } from "@/lib/http/errors";
+import { parseRouteInt } from "@/lib/http/ids";
 import { assertStatusChangeAllowed } from "@/lib/orders/locks";
 import { prisma } from "@/lib/prisma";
 
@@ -14,6 +15,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   try {
     const session = await requireSession();
     const routeParams = await params;
+    const orderId = parseRouteInt(routeParams.id, "id");
 
     const json = await req.json().catch(() => null);
     const parsed = updateOrderStatusBodySchema.safeParse(json);
@@ -22,7 +24,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     }
 
     const order = await prisma.order.findUnique({
-      where: { id: routeParams.id },
+      where: { id: orderId },
       select: {
         id: true,
         status: true,

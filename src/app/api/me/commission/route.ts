@@ -87,6 +87,23 @@ export async function GET(req: Request) {
     const from = startOfUtcDay(fromDate);
     const to = endOfUtcDay(toDate);
 
+    if (session.isAdmin) {
+      return Response.json({
+        ok: true,
+        range: {
+          from: toYmd(from),
+          to: toYmd(to),
+          bucket: parsedQuery.data.bucket,
+        },
+        totals: {
+          commissionCents: 0,
+          laborCents: 0,
+        },
+        series: [],
+        byOrder: [],
+      });
+    }
+
     const works = await prisma.orderWork.findMany({
       where: {
         performerId: session.userId,
@@ -120,13 +137,13 @@ export async function GET(req: Request) {
     });
 
     const byOrderMap = new Map<
-      string,
+      number,
       {
-        order: { id: string; title: string; guitarSerial: string | null; paidAt: Date };
+        order: { id: number; title: string; guitarSerial: string | null; paidAt: Date };
         laborCents: number;
         commissionCents: number;
         lines: Array<{
-          id: string;
+          id: number;
           serviceName: string;
           unitPriceCents: number;
           quantity: number;

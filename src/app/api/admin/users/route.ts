@@ -26,7 +26,13 @@ export async function GET() {
       orderBy: { createdAt: "desc" },
     });
 
-    return Response.json({ ok: true, users });
+    return Response.json({
+      ok: true,
+      users: users.map((user) => ({
+        ...user,
+        commissionPct: user.isAdmin ? 0 : user.commissionPct,
+      })),
+    });
   } catch (e) {
     return toHttpError(e);
   }
@@ -45,6 +51,7 @@ export async function POST(req: Request) {
     }
 
     const { name, password, isAdmin, commissionPct, isActive } = parsed.data;
+    const normalizedCommissionPct = isAdmin ? 0 : commissionPct;
 
     const existing = await prisma.user.findUnique({ where: { name } });
     if (existing) {
@@ -58,7 +65,7 @@ export async function POST(req: Request) {
         name,
         passwordHash,
         isAdmin,
-        commissionPct,
+        commissionPct: normalizedCommissionPct,
         isActive,
       },
       select: userSelect,

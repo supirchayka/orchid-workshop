@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import * as React from "react";
 
 import { OrderStatusBadge } from "@/components/orders/OrderStatusBadge";
+import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { ErrorText, Input, Label, TextArea } from "@/components/ui/Input";
@@ -16,7 +17,7 @@ import { formatRub } from "@/lib/money";
 import { orderStatusOptions } from "@/lib/orderStatus";
 
 type OrderListItem = {
-  id: string;
+  id: number;
   title: string;
   guitarSerial: string | null;
   status: OrderStatus;
@@ -109,7 +110,7 @@ export function OrdersClient(): React.JSX.Element {
     setCreateLoading(true);
 
     try {
-      const data = await apiPost<{ ok: true; order: { id: string } }>("/api/orders", {
+      const data = await apiPost<{ ok: true; order: { id: number } }>("/api/orders", {
         title: cleanTitle,
         guitarSerial,
         description,
@@ -186,7 +187,7 @@ export function OrdersClient(): React.JSX.Element {
         </Sheet>
       </div>
 
-      <Card className="p-4 sm:p-5">
+      <Card className="p-4 sm:p-5 transition-none hover:translate-y-0 hover:shadow-[var(--panel-shadow)]">
         <CardHeader className="mb-3">
           <CardTitle className="text-base">Фильтры</CardTitle>
         </CardHeader>
@@ -219,9 +220,9 @@ export function OrdersClient(): React.JSX.Element {
                     return (
                       <label
                         key={status.value}
-                        className="flex cursor-pointer items-center justify-between rounded-[14px] border border-white/10 bg-[var(--surface)] px-3 py-2"
+                        className="flex cursor-pointer items-center justify-between rounded-[14px] bg-white/[0.06] px-3 py-2"
                       >
-                        <span className="text-sm text-[var(--text)]">{status.label}</span>
+                        <Badge variant={status.badgeVariant}>{status.label}</Badge>
                         <input
                           type="checkbox"
                           checked={active}
@@ -264,7 +265,7 @@ export function OrdersClient(): React.JSX.Element {
         </Card>
       ) : null}
 
-      <div className="grid gap-3">
+      <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
         {orders.map((order) => {
           const comment = order.lastComment
             ? `${order.lastComment.authorName}: ${order.lastComment.text.replace(/\s+/gu, " ").trim()}`
@@ -272,10 +273,15 @@ export function OrdersClient(): React.JSX.Element {
 
           return (
             <Link key={order.id} href={`/orders/${order.id}`} className="block">
-              <Card className="transition hover:border-white/20 hover:bg-white/[0.04]">
+              <Card className="bg-white/[0.015]">
                 <CardHeader className="mb-2 flex flex-row items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <CardTitle className="text-base">{order.title}</CardTitle>
+                    <CardTitle className="mt-1 flex min-h-8 items-center gap-2 text-base leading-tight">
+                      <span className="truncate">{order.title}</span>
+                      <span className="shrink-0 text-sm font-medium text-[var(--muted-2)]/90">
+                        #{order.id}
+                      </span>
+                    </CardTitle>
                     {order.guitarSerial ? (
                       <p className="mt-1 truncate text-xs text-[var(--muted)]">S/N: {order.guitarSerial}</p>
                     ) : null}
@@ -299,3 +305,4 @@ export function OrdersClient(): React.JSX.Element {
     </section>
   );
 }
+

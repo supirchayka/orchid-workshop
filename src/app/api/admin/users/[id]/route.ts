@@ -2,6 +2,7 @@ import { Prisma, AuditAction, AuditEntity } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin, requireSession } from "@/lib/auth/guards";
 import { httpError, toHttpError } from "@/lib/http/errors";
+import { parseRouteInt } from "@/lib/http/ids";
 import { writeAudit } from "@/lib/audit/writeAudit";
 import { updateUserBodySchema } from "@/lib/admin/users.schema";
 
@@ -21,7 +22,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     const routeParams = await params;
     requireAdmin(session);
 
-    const { id } = routeParams;
+    const id = parseRouteInt(routeParams.id, "id");
 
     const json = await req.json().catch(() => null);
     const parsed = updateUserBodySchema.safeParse(json);
@@ -44,6 +45,13 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     }
 
     const data = parsed.data;
+    const nextIsAdmin = data.isAdmin ?? existing.isAdmin;
+    const resolvedCommissionPct = nextIsAdmin ? 0 : (data.commissionPct ?? existing.commissionPct);
+    const updateData: {
+      isAdmin?: boolean;
+      isActive?: boolean;
+      commissionPct?: number;
+    } = {};
 
     const isSelfUpdate = id === session.userId;
     if (isSelfUpdate && data.isActive === false) {
@@ -67,19 +75,28 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
     if (data.isAdmin !== undefined && data.isAdmin !== existing.isAdmin) {
       changed.isAdmin = { from: existing.isAdmin, to: data.isAdmin };
+      updateData.isAdmin = data.isAdmin;
     }
 
     if (data.isActive !== undefined && data.isActive !== existing.isActive) {
       changed.isActive = { from: existing.isActive, to: data.isActive };
+      updateData.isActive = data.isActive;
     }
 
-    if (data.commissionPct !== undefined && data.commissionPct !== existing.commissionPct) {
-      changed.commissionPct = { from: existing.commissionPct, to: data.commissionPct };
+    if (data.commissionPct !== undefined || data.isAdmin !== undefined) {
+      updateData.commissionPct = resolvedCommissionPct;
+    }
+
+    if (
+      (data.commissionPct !== undefined || data.isAdmin !== undefined) &&
+      resolvedCommissionPct !== existing.commissionPct
+    ) {
+      changed.commissionPct = { from: existing.commissionPct, to: resolvedCommissionPct };
     }
 
     const user = await prisma.user.update({
       where: { id },
-      data,
+      data: updateData,
       select: userSelect,
     });
 

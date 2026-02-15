@@ -1,14 +1,16 @@
 import { requireSession } from "@/lib/auth/guards";
 import { httpError, toHttpError } from "@/lib/http/errors";
+import { parseRouteInt } from "@/lib/http/ids";
 import { prisma } from "@/lib/prisma";
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     await requireSession();
     const routeParams = await params;
+    const orderId = parseRouteInt(routeParams.id, "id");
 
     const order = await prisma.order.findUnique({
-      where: { id: routeParams.id },
+      where: { id: orderId },
       select: {
         id: true,
         title: true,

@@ -2,11 +2,11 @@ import { prisma } from "@/lib/prisma";
 import { AuditAction, AuditEntity, Prisma } from "@prisma/client";
 
 export async function writeAudit(input: {
-  actorId: string;
+  actorId: number;
   action: AuditAction;
   entity: AuditEntity;
-  entityId: string;
-  orderId?: string | null;
+  entityId: number;
+  orderId?: number | null;
   diff?: Prisma.InputJsonValue;
 }) {
   await prisma.auditLog.create({

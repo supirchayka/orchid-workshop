@@ -2,6 +2,7 @@ import { AuditAction, AuditEntity, Prisma } from "@prisma/client";
 import { z } from "zod";
 import { requireSession } from "@/lib/auth/guards";
 import { httpError, toHttpError } from "@/lib/http/errors";
+import { parseRouteInt } from "@/lib/http/ids";
 import { calcCommissionCents } from "@/lib/orders/commission";
 import { assertOrderMutable } from "@/lib/orders/locks";
 import { recalcOrderTotalsTx } from "@/lib/orders/recalc";
@@ -12,7 +13,7 @@ const updateWorkBodySchema = z
     serviceName: z.string().trim().min(1, "Укажите название работы").max(80, "Максимум 80 символов").optional(),
     unitPriceCents: z.number().int().min(0).optional(),
     quantity: z.number().int().min(1).max(999).optional(),
-    performerId: z.string().trim().min(1, "performerId обязателен").optional(),
+    performerId: z.coerce.number().int().positive("performerId is required").optional(),
   })
   .refine((value) => Object.keys(value).length > 0, {
     message: "Передайте хотя бы одно поле для обновления",
@@ -22,6 +23,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   try {
     const session = await requireSession();
     const routeParams = await params;
+    const orderId = parseRouteInt(routeParams.id, "id");
+    const workId = parseRouteInt(routeParams.workId, "workId");
 
     const json = await req.json().catch(() => null);
     const parsed = updateWorkBodySchema.safeParse(json);
@@ -31,7 +34,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
     const work = await prisma.$transaction(async (tx) => {
       const order = await tx.order.findUnique({
-        where: { id: routeParams.id },
+        where: { id: orderId },
         select: { id: true, status: true },
       });
 
@@ -42,7 +45,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       assertOrderMutable(order);
 
       const existingWork = await tx.orderWork.findFirst({
-        where: { id: routeParams.workId, orderId: order.id },
+        where: { id: workId, orderId: order.id },
         select: {
           id: true,
           orderId: true,
@@ -70,7 +73,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       if (parsed.data.performerId !== undefined && parsed.data.performerId !== existingWork.performerId) {
         const performer = await tx.user.findUnique({
           where: { id: parsed.data.performerId },
-          select: { id: true, isActive: true, commissionPct: true },
+          select: { id: true, isActive: true, isAdmin: true, commissionPct: true },
         });
 
         if (!performer) {
@@ -82,7 +85,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
         }
 
         nextPerformerId = performer.id;
-        nextCommissionPctSnapshot = performer.commissionPct;
+        nextCommissionPctSnapshot = performer.isAdmin ? 0 : performer.commissionPct;
       }
 
       const nextServiceName = parsed.data.serviceName ?? existingWork.serviceName;
@@ -162,15 +165,16 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     return toHttpError(e);
   }
 }
-
 export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string; workId: string }> }) {
   try {
     const session = await requireSession();
     const routeParams = await params;
+    const orderId = parseRouteInt(routeParams.id, "id");
+    const workId = parseRouteInt(routeParams.workId, "workId");
 
     await prisma.$transaction(async (tx) => {
       const order = await tx.order.findUnique({
-        where: { id: routeParams.id },
+        where: { id: orderId },
         select: { id: true, status: true },
       });
 
@@ -181,7 +185,7 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
       assertOrderMutable(order);
 
       const existingWork = await tx.orderWork.findFirst({
-        where: { id: routeParams.workId, orderId: order.id },
+        where: { id: workId, orderId: order.id },
         select: { id: true },
       });
 

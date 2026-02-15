@@ -2,6 +2,7 @@ import { AuditAction, AuditEntity, Prisma } from "@prisma/client";
 import { z } from "zod";
 import { requireAdmin, requireSession } from "@/lib/auth/guards";
 import { httpError, toHttpError } from "@/lib/http/errors";
+import { parseRouteInt } from "@/lib/http/ids";
 import { prisma } from "@/lib/prisma";
 
 const isoDateOrDateTimeSchema = z
@@ -36,6 +37,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   try {
     const session = await requireSession();
     const routeParams = await params;
+    const expenseId = parseRouteInt(routeParams.id, "id");
     requireAdmin(session);
 
     const json = await req.json().catch(() => null);
@@ -47,7 +49,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
     const expense = await prisma.$transaction(async (tx) => {
       const existingExpense = await tx.expense.findFirst({
-        where: { id: routeParams.id, orderId: null },
+        where: { id: expenseId, orderId: null },
         select: {
           id: true,
           title: true,
@@ -121,11 +123,12 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
   try {
     const session = await requireSession();
     const routeParams = await params;
+    const expenseId = parseRouteInt(routeParams.id, "id");
     requireAdmin(session);
 
     await prisma.$transaction(async (tx) => {
       const existingExpense = await tx.expense.findFirst({
-        where: { id: routeParams.id, orderId: null },
+        where: { id: expenseId, orderId: null },
         select: { id: true },
       });
 

@@ -3,7 +3,7 @@ import { AUTH_COOKIE_NAME } from "@/lib/http/cookies";
 import { verifyToken } from "@/lib/auth/jwt";
 
 export type Session = {
-  userId: string;
+  userId: number;
   name: string;
   isAdmin: boolean;
 };
@@ -15,8 +15,13 @@ export async function getSession(): Promise<Session | null> {
 
   try {
     const payload = await verifyToken(token);
+    const userId = Number(payload.sub);
+    if (!Number.isInteger(userId) || userId <= 0) {
+      return null;
+    }
+
     return {
-      userId: payload.sub,
+      userId,
       name: payload.name,
       isAdmin: payload.isAdmin,
     };

@@ -2,6 +2,7 @@ import { AuditAction, AuditEntity, Prisma } from "@prisma/client";
 import { z } from "zod";
 import { requireSession } from "@/lib/auth/guards";
 import { httpError, toHttpError } from "@/lib/http/errors";
+import { parseRouteInt } from "@/lib/http/ids";
 import { assertOrderMutable } from "@/lib/orders/locks";
 import { recalcOrderTotalsTx } from "@/lib/orders/recalc";
 import { prisma } from "@/lib/prisma";
@@ -21,6 +22,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   try {
     const session = await requireSession();
     const routeParams = await params;
+    const orderId = parseRouteInt(routeParams.id, "id");
+    const partId = parseRouteInt(routeParams.partId, "partId");
 
     const json = await req.json().catch(() => null);
     const parsed = updatePartBodySchema.safeParse(json);
@@ -31,7 +34,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
     const part = await prisma.$transaction(async (tx) => {
       const order = await tx.order.findUnique({
-        where: { id: routeParams.id },
+        where: { id: orderId },
         select: { id: true, status: true },
       });
 
@@ -42,7 +45,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       assertOrderMutable(order);
 
       const existingPart = await tx.orderPart.findFirst({
-        where: { id: routeParams.partId, orderId: order.id },
+        where: { id: partId, orderId: order.id },
         select: {
           id: true,
           name: true,
@@ -122,10 +125,12 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
   try {
     const session = await requireSession();
     const routeParams = await params;
+    const orderId = parseRouteInt(routeParams.id, "id");
+    const partId = parseRouteInt(routeParams.partId, "partId");
 
     await prisma.$transaction(async (tx) => {
       const order = await tx.order.findUnique({
-        where: { id: routeParams.id },
+        where: { id: orderId },
         select: { id: true, status: true },
       });
 
@@ -136,7 +141,7 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
       assertOrderMutable(order);
 
       const existingPart = await tx.orderPart.findFirst({
-        where: { id: routeParams.partId, orderId: order.id },
+        where: { id: partId, orderId: order.id },
         select: { id: true },
       });
 

@@ -2,6 +2,7 @@ import { AuditAction, AuditEntity } from "@prisma/client";
 import { z } from "zod";
 import { requireSession } from "@/lib/auth/guards";
 import { httpError, toHttpError } from "@/lib/http/errors";
+import { parseRouteInt } from "@/lib/http/ids";
 import { prisma } from "@/lib/prisma";
 
 const querySchema = z.object({
@@ -14,6 +15,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   try {
     await requireSession();
     const routeParams = await params;
+    const orderId = parseRouteInt(routeParams.id, "id");
 
     const url = new URL(req.url);
     const parsed = querySchema.safeParse({
@@ -27,7 +29,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     }
 
     const order = await prisma.order.findUnique({
-      where: { id: routeParams.id },
+      where: { id: orderId },
       select: { id: true },
     });
 

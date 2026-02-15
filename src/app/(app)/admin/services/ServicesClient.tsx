@@ -20,7 +20,7 @@ import { apiGet, apiPatch, apiPost, getErrorMessage } from "@/lib/http/api";
 import { formatRub, parseRubToCents } from "@/lib/money";
 
 type Service = {
-  id: string;
+  id: number;
   name: string;
   defaultPriceCents: number;
   isActive: boolean;
@@ -259,7 +259,7 @@ export function ServicesClient(): React.JSX.Element {
               />
             </div>
 
-            <label className="flex h-11 items-center gap-3 rounded-[14px] border border-white/10 bg-[var(--surface)] px-3.5 text-sm">
+            <label className="flex h-11 items-center gap-3 rounded-[14px] border border-[var(--border)] bg-[var(--surface)] px-3.5 text-sm">
               <input
                 type="checkbox"
                 checked={createForm.isActive}
@@ -313,7 +313,7 @@ export function ServicesClient(): React.JSX.Element {
               />
             </div>
 
-            <label className="flex h-11 items-center gap-3 rounded-[14px] border border-white/10 bg-[var(--surface)] px-3.5 text-sm">
+            <label className="flex h-11 items-center gap-3 rounded-[14px] border border-[var(--border)] bg-[var(--surface)] px-3.5 text-sm">
               <input
                 type="checkbox"
                 checked={editForm.isActive}
@@ -339,3 +339,4 @@ export function ServicesClient(): React.JSX.Element {
     </section>
   );
 }
+

@@ -1,9 +1,11 @@
 import type { Metadata, Viewport } from "next";
-import { Inter } from "next/font/google";
-import "./globals.css";
+import { Manrope } from "next/font/google";
+
 import RegisterSW from "@/components/pwa/RegisterSW";
 
-const inter = Inter({
+import "./globals.css";
+
+const manrope = Manrope({
   subsets: ["latin", "cyrillic"],
   display: "swap",
   variable: "--font-sans",
@@ -14,20 +16,20 @@ export const metadata: Metadata = {
   description: "PWA для учёта заказов мастерской Orchid",
   appleWebApp: {
     capable: true,
-    statusBarStyle: "black-translucent",
+    statusBarStyle: "default",
     title: "Orchid",
   },
 };
 
 export const viewport: Viewport = {
-  themeColor: "#000000",
+  themeColor: "#ff8c0f",
   colorScheme: "dark",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="ru" className="dark">
-      <body className={`${inter.variable} font-sans`}>
+      <body className={`${manrope.variable} font-sans`}>
         <RegisterSW />
         {children}
       </body>

@@ -3,7 +3,7 @@ import type { Prisma } from "@prisma/client";
 /**
  * Пересчитывает и обновляет денормализованные totals заказа внутри текущей транзакции.
  */
-export async function recalcOrderTotalsTx(tx: Prisma.TransactionClient, orderId: string): Promise<void> {
+export async function recalcOrderTotalsTx(tx: Prisma.TransactionClient, orderId: number): Promise<void> {
   const [works, parts] = await Promise.all([
     tx.orderWork.findMany({
       where: { orderId },

@@ -11,7 +11,7 @@ import { formatRub } from "@/lib/money";
 type Bucket = "day" | "week" | "month";
 
 type CommissionLine = {
-  id: string;
+  id: number;
   serviceName: string;
   unitPriceCents: number;
   quantity: number;
@@ -22,7 +22,7 @@ type CommissionLine = {
 
 type CommissionByOrder = {
   order: {
-    id: string;
+    id: number;
     title: string;
     guitarSerial: string | null;
     paidAt: string;
@@ -235,7 +235,7 @@ export function CommissionClient(): React.JSX.Element {
                   id="commission-bucket"
                   value={bucket}
                   onChange={(event) => setBucket(event.target.value as Bucket)}
-                  className="h-11 w-full rounded-[14px] border border-white/10 bg-[var(--surface)] px-3.5 text-[15px] text-[var(--text)] outline-none transition focus:border-[rgba(10,132,255,0.55)] focus:shadow-[0_0_0_3px_rgba(10,132,255,0.18)]"
+                  className="h-11 w-full rounded-[14px] border border-[var(--border)] bg-[var(--surface)] px-3.5 text-[15px] text-[var(--text)] outline-none transition focus:border-[var(--border-strong)] focus:shadow-[0_0_0_3px_var(--accent-soft)]"
                 >
                   <option value="day">День</option>
                   <option value="week">Неделя</option>
@@ -289,7 +289,8 @@ export function CommissionClient(): React.JSX.Element {
           <Card key={item.order.id} className="p-4">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
-                <h2 className="text-base font-semibold">{item.order.title}</h2>
+                <p className="text-[10px] uppercase tracking-[0.24em] text-[var(--muted-2)]">Order id: {item.order.id}</p>
+                <h2 className="mt-1 text-base font-semibold">{item.order.title}</h2>
                 <p className="text-sm text-[var(--muted)]">
                   {item.order.guitarSerial ? `Серийный номер: ${item.order.guitarSerial}` : "Без серийного номера"}
                 </p>
@@ -306,11 +307,11 @@ export function CommissionClient(): React.JSX.Element {
               </div>
             </div>
 
-            <details className="mt-3 rounded-[14px] border border-white/10 bg-[var(--surface)] p-3">
+            <details className="mt-3 rounded-[14px] border border-[var(--border)] bg-[var(--surface)] p-3">
               <summary className="cursor-pointer text-sm font-medium">Строки работ ({item.lines.length})</summary>
               <div className="mt-3 space-y-2">
                 {item.lines.map((line) => (
-                  <div key={line.id} className="rounded-[12px] border border-white/10 bg-[var(--surface-2)] p-2 text-sm">
+                  <div key={line.id} className="rounded-[12px] border border-[var(--border)] bg-[var(--surface-2)] p-2 text-sm">
                     <p className="font-medium">{line.serviceName}</p>
                     <p className="text-[var(--muted)]">
                       {line.quantity} × {formatRub(line.unitPriceCents)} = {formatRub(line.lineTotalCents)}
@@ -328,3 +329,4 @@ export function CommissionClient(): React.JSX.Element {
     </section>
   );
 }
+

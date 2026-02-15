@@ -17,7 +17,13 @@ export async function GET() {
       orderBy: { name: "asc" },
     });
 
-    return Response.json({ ok: true, users });
+    return Response.json({
+      ok: true,
+      users: users.map((user) => ({
+        ...user,
+        commissionPct: user.isAdmin ? 0 : user.commissionPct,
+      })),
+    });
   } catch (e) {
     return toHttpError(e);
   }

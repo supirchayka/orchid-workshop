@@ -24,20 +24,20 @@ type AuditEntity = "ORDER" | "ORDER_WORK" | "ORDER_PART" | "EXPENSE" | "COMMENT"
 type MeResponse = {
   ok: true;
   me: {
-    id: string;
+    id: number;
     name: string;
     isAdmin: boolean;
   };
 };
 
 type StaffService = {
-  id: string;
+  id: number;
   name: string;
   defaultPriceCents: number;
 };
 
 type StaffUser = {
-  id: string;
+  id: number;
   name: string;
   commissionPct: number;
   isAdmin: boolean;
@@ -47,20 +47,20 @@ type ServicesResponse = { ok: true; services: StaffService[] };
 type UsersResponse = { ok: true; users: StaffUser[] };
 
 type WorkItem = {
-  id: string;
+  id: number;
   serviceName: string;
   unitPriceCents: number;
   quantity: number;
-  performerId: string;
+  performerId: number;
   commissionPctSnapshot: number;
   commissionCentsSnapshot: number;
   createdAt: string;
-  performer: { id: string; name: string };
-  service: { id: string; name: string } | null;
+  performer: { id: number; name: string };
+  service: { id: number; name: string } | null;
 };
 
 type PartItem = {
-  id: string;
+  id: number;
   name: string;
   unitPriceCents: number;
   quantity: number;
@@ -71,7 +71,7 @@ type PartItem = {
 type OrderDetailsResponse = {
   ok: true;
   order: {
-    id: string;
+    id: number;
     title: string;
     guitarSerial: string | null;
     description: string | null;
@@ -85,17 +85,17 @@ type OrderDetailsResponse = {
     works: WorkItem[];
     parts: PartItem[];
     comments: Array<{
-      id: string;
+      id: number;
       text: string;
       createdAt: string;
-      author: { id: string; name: string };
+      author: { id: number; name: string };
     }>;
     audit: Array<{
-      id: string;
+      id: number;
       action: string;
       entity: string;
-      entityId: string;
-      actorId: string;
+      entityId: number;
+      actorId: number;
       createdAt: string;
       diff: unknown;
     }>;
@@ -113,16 +113,16 @@ type AuditDiff = {
 };
 
 type AuditEntry = {
-  id: string;
-  actorId: string;
+  id: number;
+  actorId: number;
   action: AuditAction;
   entity: AuditEntity;
-  entityId: string;
-  orderId: string | null;
+  entityId: number;
+  orderId: number | null;
   diff: unknown;
   createdAt: string;
   actor: {
-    id: string;
+    id: number;
     name: string;
   };
 };
@@ -210,9 +210,9 @@ function getDeletedDetails(diff: AuditDiff): string {
 }
 
 const selectClassName =
-  "h-11 w-full rounded-[14px] border border-white/10 bg-[var(--surface)] px-3.5 text-[15px] text-[var(--text)] outline-none transition focus:border-[rgba(10,132,255,0.55)] focus:shadow-[0_0_0_3px_rgba(10,132,255,0.18)]";
+  "h-11 w-full rounded-[14px] border border-[var(--border)] bg-[var(--surface)] px-3.5 text-[15px] text-[var(--text)] outline-none transition focus:border-[var(--border-strong)] focus:shadow-[0_0_0_3px_var(--accent-soft)]";
 
-export function OrderDetailsClient({ orderId }: { orderId: string }): React.JSX.Element {
+export function OrderDetailsClient({ orderId }: { orderId: number }): React.JSX.Element {
   const { showToast } = useToast();
   const [data, setData] = React.useState<OrderDetailsResponse["order"] | null>(null);
   const [me, setMe] = React.useState<MeResponse["me"] | null>(null);
@@ -246,7 +246,7 @@ export function OrderDetailsClient({ orderId }: { orderId: string }): React.JSX.
   const [editError, setEditError] = React.useState<string | null>(null);
   const [editLoading, setEditLoading] = React.useState(false);
 
-  const [deleteWorkId, setDeleteWorkId] = React.useState<string | null>(null);
+  const [deleteWorkId, setDeleteWorkId] = React.useState<number | null>(null);
 
   const [createPartSheetOpen, setCreatePartSheetOpen] = React.useState(false);
   const [createPartName, setCreatePartName] = React.useState("");
@@ -263,7 +263,7 @@ export function OrderDetailsClient({ orderId }: { orderId: string }): React.JSX.
   const [editPartError, setEditPartError] = React.useState<string | null>(null);
   const [editPartLoading, setEditPartLoading] = React.useState(false);
 
-  const [deletePartId, setDeletePartId] = React.useState<string | null>(null);
+  const [deletePartId, setDeletePartId] = React.useState<number | null>(null);
   const [newCommentText, setNewCommentText] = React.useState("");
   const [createCommentError, setCreateCommentError] = React.useState<string | null>(null);
   const [createCommentLoading, setCreateCommentLoading] = React.useState(false);
@@ -354,9 +354,9 @@ export function OrderDetailsClient({ orderId }: { orderId: string }): React.JSX.
 
   const resetCreateForm = React.useCallback(() => {
     setCreateMode("from-service");
-    setCreateServiceId(services[0]?.id ?? "");
+    setCreateServiceId(services[0] ? String(services[0].id) : "");
     setCreateServiceName("");
-    setCreatePerformerId(users[0]?.id ?? "");
+    setCreatePerformerId(users[0] ? String(users[0].id) : "");
     setCreateUnitPriceRub(services[0] ? centsToRubInput(services[0].defaultPriceCents) : "");
     setCreateQuantity("1");
     setCreateError(null);
@@ -370,7 +370,7 @@ export function OrderDetailsClient({ orderId }: { orderId: string }): React.JSX.
 
   React.useEffect(() => {
     if (createMode === "from-service" && createServiceId) {
-      const selectedService = services.find((item) => item.id === createServiceId);
+      const selectedService = services.find((item) => String(item.id) === createServiceId);
       if (selectedService) {
         setCreateUnitPriceRub(centsToRubInput(selectedService.defaultPriceCents));
       }
@@ -468,7 +468,7 @@ export function OrderDetailsClient({ orderId }: { orderId: string }): React.JSX.
   const openEditSheet = (work: WorkItem): void => {
     setEditingWork(work);
     setEditServiceName(work.serviceName);
-    setEditPerformerId(work.performerId);
+    setEditPerformerId(String(work.performerId));
     setEditUnitPriceRub(centsToRubInput(work.unitPriceCents));
     setEditQuantity(String(work.quantity));
     setEditError(null);
@@ -531,7 +531,7 @@ export function OrderDetailsClient({ orderId }: { orderId: string }): React.JSX.
     }
   };
 
-  const onDeleteWork = async (workId: string): Promise<void> => {
+  const onDeleteWork = async (workId: number): Promise<void> => {
     if (!data) return;
     if (!window.confirm("Удалить работу из заказа?")) return;
 
@@ -660,7 +660,7 @@ export function OrderDetailsClient({ orderId }: { orderId: string }): React.JSX.
     }
   };
 
-  const onDeletePart = async (partId: string): Promise<void> => {
+  const onDeletePart = async (partId: number): Promise<void> => {
     if (!data) return;
     if (!window.confirm("Удалить запчасть из заказа?")) return;
 
@@ -739,8 +739,11 @@ export function OrderDetailsClient({ orderId }: { orderId: string }): React.JSX.
     <section className="space-y-4">
       <Card className="p-4 sm:p-5">
         <CardHeader className="mb-3 flex flex-row items-start justify-between gap-3">
-          <div>
-            <CardTitle className="text-xl">{data.title}</CardTitle>
+          <div className="min-w-0">
+            <CardTitle className="mt-1 flex min-h-9 items-center gap-2 text-xl leading-tight">
+              <span className="truncate">{data.title}</span>
+              <span className="shrink-0 text-base font-medium text-[var(--muted-2)]/90">#{data.id}</span>
+            </CardTitle>
             {data.guitarSerial ? <p className="mt-1 text-sm text-[var(--muted)]">S/N: {data.guitarSerial}</p> : null}
           </div>
           <div className="flex flex-col items-end gap-2">
@@ -779,7 +782,7 @@ export function OrderDetailsClient({ orderId }: { orderId: string }): React.JSX.
                     return (
                       <label
                         key={statusOption.value}
-                        className="flex items-center justify-between rounded-[14px] border border-white/10 bg-[var(--surface)] px-3 py-2"
+                        className="flex items-center justify-between rounded-[14px] border border-[var(--border)] bg-[var(--surface)] px-3 py-2"
                       >
                         <div>
                           <p className="text-sm text-[var(--text)]">{statusOption.label}</p>
@@ -916,7 +919,7 @@ export function OrderDetailsClient({ orderId }: { orderId: string }): React.JSX.
               </Sheet>
             </div>
 
-            <div className="rounded-[14px] border border-white/10 bg-[var(--surface)] px-3 py-2 text-sm">
+            <div className="rounded-[14px] border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm">
               <p className="text-[var(--muted)]">Итого по работам: {formatRub(data.laborSubtotalCents)}</p>
             </div>
 
@@ -928,7 +931,7 @@ export function OrderDetailsClient({ orderId }: { orderId: string }): React.JSX.
                 const totalCents = work.unitPriceCents * work.quantity;
 
                 return (
-                  <div key={work.id} className="rounded-[14px] border border-white/10 bg-[var(--surface)] px-3 py-2 text-sm">
+                  <div key={work.id} className="rounded-[14px] border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm">
                     <div className="flex items-start justify-between gap-3">
                       <div>
                         <p className="font-medium text-[var(--text)]">{work.serviceName}</p>
@@ -1022,7 +1025,7 @@ export function OrderDetailsClient({ orderId }: { orderId: string }): React.JSX.
               </Sheet>
             </div>
 
-            <div className="rounded-[14px] border border-white/10 bg-[var(--surface)] px-3 py-2 text-sm">
+            <div className="rounded-[14px] border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm">
               <p className="text-[var(--muted)]">Итого запчасти: {formatRub(data.partsSubtotalCents)}</p>
             </div>
 
@@ -1030,7 +1033,7 @@ export function OrderDetailsClient({ orderId }: { orderId: string }): React.JSX.
               <p className="text-sm text-[var(--muted)]">Нет запчастей</p>
             ) : (
               data.parts.map((part) => (
-                <div key={part.id} className="rounded-[14px] border border-white/10 bg-[var(--surface)] px-3 py-2 text-sm">
+                <div key={part.id} className="rounded-[14px] border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm">
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <p className="font-medium text-[var(--text)]">{part.name}</p>
@@ -1064,7 +1067,7 @@ export function OrderDetailsClient({ orderId }: { orderId: string }): React.JSX.
 
         <TabsContent value="comments">
           <Card className="space-y-3">
-            <form className="space-y-2 rounded-[14px] border border-white/10 bg-[var(--surface)] p-3" onSubmit={onCreateComment}>
+            <form className="space-y-2 rounded-[14px] border border-[var(--border)] bg-[var(--surface)] p-3" onSubmit={onCreateComment}>
               <Label htmlFor="new-comment">Комментарий</Label>
               <TextArea
                 id="new-comment"
@@ -1089,7 +1092,7 @@ export function OrderDetailsClient({ orderId }: { orderId: string }): React.JSX.
               <p className="text-sm text-[var(--muted)]">Нет комментариев</p>
             ) : (
               data.comments.map((comment) => (
-                <div key={comment.id} className="rounded-[14px] border border-white/10 bg-[var(--surface)] px-3 py-2 text-sm">
+                <div key={comment.id} className="rounded-[14px] border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm">
                   <div className="flex items-center justify-between gap-2">
                     <p className="font-medium text-[var(--text)]">{comment.author.name}</p>
                     <p className="text-xs text-[var(--muted-2)]">{formatDateTime(comment.createdAt)}</p>
@@ -1103,7 +1106,7 @@ export function OrderDetailsClient({ orderId }: { orderId: string }): React.JSX.
 
         <TabsContent value="audit">
           <Card className="space-y-3">
-            <div className="rounded-[14px] border border-white/10 bg-[var(--surface)] p-3">
+            <div className="rounded-[14px] border border-[var(--border)] bg-[var(--surface)] p-3">
               <div className="flex flex-wrap items-end gap-3">
                 <div className="min-w-44 flex-1">
                   <Label htmlFor="audit-entity">Сущность</Label>
@@ -1162,7 +1165,7 @@ export function OrderDetailsClient({ orderId }: { orderId: string }): React.JSX.
               const deletedId = diff ? getDeletedDetails(diff) : "—";
 
               return (
-                <div key={entry.id} className="rounded-[14px] border border-white/10 bg-[var(--surface)] px-3 py-3 text-sm">
+                <div key={entry.id} className="rounded-[14px] border border-[var(--border)] bg-[var(--surface)] px-3 py-3 text-sm">
                   <div className="flex items-start justify-between gap-3">
                     <p className="font-medium text-[var(--text)]">
                       {entry.actor.name} — {auditActionLabel[entry.action]} {auditEntityLabel[entry.entity]}
@@ -1170,7 +1173,7 @@ export function OrderDetailsClient({ orderId }: { orderId: string }): React.JSX.
                     <p className="text-xs text-[var(--muted-2)]">{formatDateTime(entry.createdAt)}</p>
                   </div>
 
-                  <details className="mt-2 rounded-[12px] border border-white/10 bg-black/10 px-3 py-2">
+                  <details className="mt-2 rounded-[12px] border border-[var(--border)] bg-black/10 px-3 py-2">
                     <summary className="cursor-pointer text-xs text-[var(--muted)]">Детали</summary>
 
                     <div className="mt-2 space-y-2 text-xs text-[var(--muted)]">

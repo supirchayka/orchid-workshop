@@ -31,7 +31,7 @@ export function calcCommissionCents(lineTotalCents: number, pct: number): number
 /**
  * Пересчитывает и обновляет commissionCentsSnapshot для строки работ в транзакции.
  */
-export async function recalcWorkCommissionTx(tx: Prisma.TransactionClient, workId: string): Promise<void> {
+export async function recalcWorkCommissionTx(tx: Prisma.TransactionClient, workId: number): Promise<void> {
   const work = await tx.orderWork.findUnique({
     where: { id: workId },
     select: {

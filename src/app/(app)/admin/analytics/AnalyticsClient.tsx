@@ -19,7 +19,7 @@ type AnalyticsSeriesItem = {
 };
 
 type ByMasterItem = {
-  performerId: string;
+  performerId: number;
   name: string;
   laborCents: number;
   commissionCents: number;
@@ -133,7 +133,7 @@ function MiniBarsChart({
             <div className="grid auto-cols-fr grid-flow-col gap-2 overflow-x-auto pb-1">
               {data.map((item) => (
                 <div key={String(item.key)} className="min-w-16">
-                  <div className="flex h-40 items-end gap-1 rounded-[12px] border border-white/10 bg-[var(--surface)]/70 p-2">
+                  <div className="flex h-40 items-end gap-1 rounded-[12px] border border-[var(--border)] bg-[var(--surface)]/70 p-2">
                     {keys.map(({ key, colorClass, name }) => {
                       const value = Number(item[key] ?? 0);
                       const barHeight = Math.max(3, Math.round((Math.abs(value) / maxValue) * 100));
@@ -256,7 +256,7 @@ export function AnalyticsClient(): React.JSX.Element {
               <Label htmlFor="analytics-bucket">Группировка</Label>
               <select
                 id="analytics-bucket"
-                className="h-11 w-full rounded-[14px] border border-white/10 bg-[var(--surface)] px-3.5 text-[15px] text-[var(--text)] outline-none transition focus:border-[rgba(10,132,255,0.55)] focus:shadow-[0_0_0_3px_rgba(10,132,255,0.18)]"
+                className="h-11 w-full rounded-[14px] border border-[var(--border)] bg-[var(--surface)] px-3.5 text-[15px] text-[var(--text)] outline-none transition focus:border-[var(--border-strong)] focus:shadow-[0_0_0_3px_var(--accent-soft)]"
                 value={filters.bucket}
                 onChange={(event) => setFilters((prev) => ({ ...prev, bucket: event.target.value as Bucket }))}
               >
@@ -331,7 +331,7 @@ export function AnalyticsClient(): React.JSX.Element {
                 <div className="overflow-x-auto">
                   <table className="min-w-full text-sm">
                     <thead>
-                      <tr className="border-b border-white/10 text-left text-xs uppercase tracking-wide text-[var(--muted)]">
+                      <tr className="border-b border-[var(--border)] text-left text-xs uppercase tracking-wide text-[var(--muted)]">
                         <th className="pb-3 pr-4">Мастер</th>
                         <th className="pb-3 pr-4">Работы</th>
                         <th className="pb-3">Комиссия</th>
@@ -356,3 +356,4 @@ export function AnalyticsClient(): React.JSX.Element {
     </section>
   );
 }
+

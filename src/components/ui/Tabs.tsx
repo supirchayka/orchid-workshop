@@ -52,7 +52,7 @@ export const TabsList = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HT
     <div
       ref={ref}
       className={cn(
-        "inline-flex h-11 w-full items-center rounded-[14px] border border-white/10 bg-[var(--surface)] p-1",
+        "inline-flex h-11 w-full items-center rounded-[16px] border-none bg-[linear-gradient(150deg,rgba(255,255,255,0.14),rgba(255,255,255,0.04))] p-1 backdrop-blur-xl",
         className,
       )}
       {...props}
@@ -78,8 +78,9 @@ export const TabsTrigger = React.forwardRef<HTMLButtonElement, TabsTriggerProps>
         aria-selected={isActive}
         data-state={isActive ? "active" : "inactive"}
         className={cn(
-          "flex-1 rounded-xl px-3 py-2 text-sm font-medium text-[var(--muted)] transition",
-          isActive && "bg-[var(--surface-2)] text-[var(--text)] shadow",
+          "glass-hover flex-1 rounded-xl border-none px-3 py-2 text-sm font-medium text-[var(--muted)]",
+          isActive &&
+            "bg-[linear-gradient(140deg,rgba(255,140,15,0.26),rgba(255,140,15,0.12))] text-[var(--text)] shadow-[0_10px_24px_rgba(3,10,18,0.3)]",
           className,
         )}
         onClick={() => setActiveValue(value)}

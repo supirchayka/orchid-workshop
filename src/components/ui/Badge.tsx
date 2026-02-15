@@ -9,11 +9,11 @@ export interface BadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
 }
 
 const variantStyles: Record<BadgeVariant, string> = {
-  default: "bg-white/10 text-zinc-200 border-white/10",
-  info: "bg-[rgba(10,132,255,0.2)] text-blue-300 border-blue-300/20",
-  success: "bg-emerald-400/15 text-emerald-300 border-emerald-300/20",
-  warning: "bg-amber-400/15 text-amber-300 border-amber-300/20",
-  danger: "bg-[rgba(255,69,58,0.2)] text-red-300 border-red-300/20",
+  default: "bg-white/12 text-[var(--text)]",
+  info: "bg-[linear-gradient(135deg,rgba(81,130,255,0.34),rgba(81,130,255,0.2))] text-[#e4edff]",
+  success: "bg-[linear-gradient(135deg,rgba(40,182,114,0.34),rgba(40,182,114,0.2))] text-[#ddfff0]",
+  warning: "bg-[linear-gradient(135deg,rgba(255,140,15,0.42),rgba(255,140,15,0.24))] text-[#fff2de]",
+  danger: "bg-[linear-gradient(135deg,rgba(255,92,110,0.4),rgba(255,92,110,0.24))] text-[#ffe1e5]",
 };
 
 export const Badge = React.forwardRef<HTMLSpanElement, BadgeProps>(
@@ -21,7 +21,7 @@ export const Badge = React.forwardRef<HTMLSpanElement, BadgeProps>(
     <span
       ref={ref}
       className={cn(
-        "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium tracking-[0.15px]",
+        "inline-flex items-center rounded-full border-none px-2.5 py-0.5 text-xs font-medium tracking-[0.15px] backdrop-blur-xl",
         variantStyles[variant],
         className,
       )}

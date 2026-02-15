@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { createPortal } from "react-dom";
 
 import { cn } from "@/lib/cn";
 
@@ -53,6 +54,17 @@ export function Sheet({ open, defaultOpen = false, onOpenChange, children }: She
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [isOpen, setOpen]);
 
+  React.useEffect(() => {
+    if (!isOpen) return;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [isOpen]);
+
   return <SheetContext.Provider value={{ open: isOpen, setOpen }}>{children}</SheetContext.Provider>;
 }
 
@@ -95,23 +107,24 @@ export function SheetTrigger({ asChild = false, children, onClick, ...props }: S
 }
 
 export interface SheetContentProps extends React.HTMLAttributes<HTMLDivElement> {
-  side?: "bottom" | "right";
+  side?: "bottom" | "right" | "left";
 }
 
 export const SheetContent = React.forwardRef<HTMLDivElement, SheetContentProps>(
-  ({ className, side = "bottom", children, ...props }, ref) => {
+  ({ className, side: _side = "bottom", children, ...props }, ref) => {
     const { open, setOpen } = useSheetContext();
+    void _side;
 
-    if (!open) {
+    if (!open || typeof document === "undefined") {
       return null;
     }
 
-    return (
-      <div className="fixed inset-0 z-50">
+    return createPortal(
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
         <button
           type="button"
-          aria-label="Закрыть"
-          className="absolute inset-0 h-full w-full bg-black/60 backdrop-blur-[1px] animate-in fade-in-0 duration-200"
+          aria-label="Close"
+          className="absolute inset-0 h-full w-full bg-black/60 backdrop-blur-[1px]"
           onClick={() => setOpen(false)}
         />
 
@@ -120,18 +133,16 @@ export const SheetContent = React.forwardRef<HTMLDivElement, SheetContentProps>(
           role="dialog"
           aria-modal="true"
           className={cn(
-            "ios-card absolute border border-white/10 p-5 duration-200 ease-out",
-            side === "bottom" &&
-              "bottom-0 left-0 right-0 rounded-b-none rounded-t-[24px] animate-in slide-in-from-bottom-8 fade-in-0",
-            side === "right" &&
-              "right-0 top-0 h-full w-full max-w-md rounded-l-[24px] rounded-r-none animate-in slide-in-from-right-12 fade-in-0",
+            "ios-card anim-page-in relative w-full max-w-xl border-none p-5",
+            "max-h-[92dvh] overflow-y-auto",
             className,
           )}
           {...props}
         >
           {children}
         </div>
-      </div>
+      </div>,
+      document.body,
     );
   },
 );
@@ -150,7 +161,7 @@ export const SheetTitle = React.forwardRef<HTMLHeadingElement, React.HTMLAttribu
 SheetTitle.displayName = "SheetTitle";
 
 export const SheetDescription = React.forwardRef<HTMLParagraphElement, React.HTMLAttributes<HTMLParagraphElement>>(
-  ({ className, ...props }, ref) => <p ref={ref} className={cn("text-sm text-zinc-400", className)} {...props} />,
+  ({ className, ...props }, ref) => <p ref={ref} className={cn("text-sm text-[var(--muted)]", className)} {...props} />,
 );
 SheetDescription.displayName = "SheetDescription";
 

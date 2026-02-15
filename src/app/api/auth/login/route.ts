@@ -34,7 +34,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, message: "Неверный логин или пароль" }, { status: 401 });
   }
 
-  const token = await signToken({ sub: user.id, name: user.name, isAdmin: user.isAdmin });
+  const token = await signToken({ sub: String(user.id), name: user.name, isAdmin: user.isAdmin });
 
   const res = NextResponse.json({ ok: true });
   res.cookies.set(AUTH_COOKIE_NAME, token, authCookieOptions());

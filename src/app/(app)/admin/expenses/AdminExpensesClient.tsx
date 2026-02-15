@@ -11,7 +11,7 @@ import { apiDelete, apiGet, apiPatch, apiPost, getErrorMessage } from "@/lib/htt
 import { formatRub, parseRubToCents } from "@/lib/money";
 
 type Expense = {
-  id: string;
+  id: number;
   title: string;
   amountCents: number;
   expenseDate: string;
@@ -56,7 +56,7 @@ export function AdminExpensesClient(): React.JSX.Element {
   const [editError, setEditError] = React.useState<string | null>(null);
   const [editLoading, setEditLoading] = React.useState(false);
 
-  const [deleteId, setDeleteId] = React.useState<string | null>(null);
+  const [deleteId, setDeleteId] = React.useState<number | null>(null);
 
   const fetchExpenses = React.useCallback(async (params?: { from?: string; to?: string }) => {
     setIsListLoading(true);

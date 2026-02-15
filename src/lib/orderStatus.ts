@@ -12,8 +12,8 @@ export const OrderStatusLabel: Record<OrderStatus, string> = {
 
 export const OrderStatusBadgeVariant: Record<OrderStatus, BadgeVariant> = {
   NEW: "info",
-  IN_PROGRESS: "default",
-  WAITING_PARTS: "warning",
+  IN_PROGRESS: "warning",
+  WAITING_PARTS: "danger",
   READY_FOR_PICKUP: "success",
   PAID: "success",
 };

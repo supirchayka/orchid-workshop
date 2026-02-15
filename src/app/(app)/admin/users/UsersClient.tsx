@@ -6,7 +6,7 @@ import { useToast } from "@/components/ui/Toast";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/Card";
-import { ErrorText, Input, Label } from "@/components/ui/Input";
+import { ErrorText, HelperText, Input, Label } from "@/components/ui/Input";
 import {
   Sheet,
   SheetContent,
@@ -18,7 +18,7 @@ import {
 import { apiGet, apiPatch, apiPost, getErrorMessage } from "@/lib/http/api";
 
 type User = {
-  id: string;
+  id: number;
   name: string;
   isAdmin: boolean;
   isActive: boolean;
@@ -30,7 +30,7 @@ type User = {
 type MeResponse = {
   ok: true;
   me: {
-    id: string;
+    id: number;
     name: string;
     isAdmin: boolean;
   };
@@ -53,7 +53,7 @@ type EditForm = {
 export function UsersClient(): React.JSX.Element {
   const { showToast } = useToast();
   const [users, setUsers] = React.useState<User[]>([]);
-  const [currentUserId, setCurrentUserId] = React.useState<string | null>(null);
+  const [currentUserId, setCurrentUserId] = React.useState<number | null>(null);
   const [search, setSearch] = React.useState("");
   const [listError, setListError] = React.useState<string | null>(null);
   const [isListLoading, setIsListLoading] = React.useState(true);
@@ -142,7 +142,7 @@ export function UsersClient(): React.JSX.Element {
       await apiPost<{ ok: true }>("/api/admin/users", {
         name: createForm.name,
         password: createForm.password,
-        commissionPct: Number(createForm.commissionPct),
+        commissionPct: createForm.isAdmin ? 0 : Number(createForm.commissionPct),
         isAdmin: createForm.isAdmin,
         isActive: createForm.isActive,
       });
@@ -185,7 +185,7 @@ export function UsersClient(): React.JSX.Element {
 
     try {
       await apiPatch<{ ok: true }>(`/api/admin/users/${editingUser.id}`, {
-        commissionPct: Number(editForm.commissionPct),
+        commissionPct: editForm.isAdmin ? 0 : Number(editForm.commissionPct),
         isAdmin: editForm.isAdmin,
         isActive: editForm.isActive,
       });
@@ -338,21 +338,29 @@ export function UsersClient(): React.JSX.Element {
                 max={100}
                 value={createForm.commissionPct}
                 onChange={(event) => setCreateForm((prev) => ({ ...prev, commissionPct: event.target.value }))}
+                disabled={createForm.isAdmin}
                 required
               />
+              {createForm.isAdmin ? <HelperText>Для администраторов комиссия всегда 0%.</HelperText> : null}
             </div>
 
-            <label className="flex h-11 items-center gap-3 rounded-[14px] border border-white/10 bg-[var(--surface)] px-3.5 text-sm">
+            <label className="flex h-11 items-center gap-3 rounded-[14px] border border-[var(--border)] bg-[var(--surface)] px-3.5 text-sm">
               <input
                 type="checkbox"
                 checked={createForm.isAdmin}
-                onChange={(event) => setCreateForm((prev) => ({ ...prev, isAdmin: event.target.checked }))}
+                onChange={(event) =>
+                  setCreateForm((prev) => ({
+                    ...prev,
+                    isAdmin: event.target.checked,
+                    commissionPct: event.target.checked ? "0" : prev.commissionPct,
+                  }))
+                }
                 className="h-4 w-4"
               />
               Админ
             </label>
 
-            <label className="flex h-11 items-center gap-3 rounded-[14px] border border-white/10 bg-[var(--surface)] px-3.5 text-sm">
+            <label className="flex h-11 items-center gap-3 rounded-[14px] border border-[var(--border)] bg-[var(--surface)] px-3.5 text-sm">
               <input
                 type="checkbox"
                 checked={createForm.isActive}
@@ -393,21 +401,29 @@ export function UsersClient(): React.JSX.Element {
                 max={100}
                 value={editForm.commissionPct}
                 onChange={(event) => setEditForm((prev) => ({ ...prev, commissionPct: event.target.value }))}
+                disabled={editForm.isAdmin}
                 required
               />
+              {editForm.isAdmin ? <HelperText>Для администраторов комиссия всегда 0%.</HelperText> : null}
             </div>
 
-            <label className="flex h-11 items-center gap-3 rounded-[14px] border border-white/10 bg-[var(--surface)] px-3.5 text-sm">
+            <label className="flex h-11 items-center gap-3 rounded-[14px] border border-[var(--border)] bg-[var(--surface)] px-3.5 text-sm">
               <input
                 type="checkbox"
                 checked={editForm.isAdmin}
-                onChange={(event) => setEditForm((prev) => ({ ...prev, isAdmin: event.target.checked }))}
+                onChange={(event) =>
+                  setEditForm((prev) => ({
+                    ...prev,
+                    isAdmin: event.target.checked,
+                    commissionPct: event.target.checked ? "0" : prev.commissionPct,
+                  }))
+                }
                 className="h-4 w-4"
               />
               Админ
             </label>
 
-            <label className="flex h-11 items-center gap-3 rounded-[14px] border border-white/10 bg-[var(--surface)] px-3.5 text-sm">
+            <label className="flex h-11 items-center gap-3 rounded-[14px] border border-[var(--border)] bg-[var(--surface)] px-3.5 text-sm">
               <input
                 type="checkbox"
                 checked={editForm.isActive}
@@ -473,3 +489,4 @@ export function UsersClient(): React.JSX.Element {
     </section>
   );
 }
+

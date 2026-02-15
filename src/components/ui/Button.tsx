@@ -13,11 +13,12 @@ export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
 
 const variantStyles: Record<ButtonVariant, string> = {
   primary:
-    "bg-[var(--accent)] text-white border border-white/10 shadow-[0_12px_28px_rgba(10,132,255,0.22)] hover:brightness-105",
-  secondary: "bg-[var(--surface-2)] text-[var(--text)] border border-white/10 hover:bg-white/10",
-  ghost: "bg-transparent text-[var(--text)] border border-transparent hover:bg-white/10",
+    "bg-[linear-gradient(135deg,#ff9d2b,#ff8c0f)] text-[#101010] shadow-[0_12px_26px_rgba(0,0,0,0.34)] hover:brightness-[1.03]",
+  secondary:
+    "bg-[linear-gradient(150deg,rgba(255,255,255,0.14),rgba(255,255,255,0.03))] text-[var(--text)] backdrop-blur-xl hover:bg-[linear-gradient(150deg,rgba(255,255,255,0.2),rgba(255,255,255,0.07))]",
+  ghost: "bg-transparent text-[var(--text)] hover:bg-white/[0.06]",
   danger:
-    "bg-[var(--danger)] text-white border border-red-200/20 shadow-[0_12px_28px_rgba(255,69,58,0.2)] hover:brightness-105",
+    "bg-[linear-gradient(135deg,rgba(255,107,99,0.88),rgba(255,107,99,0.72))] text-white shadow-[0_16px_32px_rgba(0,0,0,0.45)] hover:brightness-[1.05]",
 };
 
 const sizeStyles: Record<ButtonSize, string> = {
@@ -34,7 +35,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       <button
         ref={ref}
         className={cn(
-          "inline-flex items-center justify-center gap-2 rounded-[14px] font-medium transition active:scale-[0.99] disabled:pointer-events-none disabled:opacity-60",
+          "glass-hover inline-flex items-center justify-center gap-2 rounded-[14px] border-none font-medium active:scale-[0.995] disabled:pointer-events-none disabled:opacity-60",
           variantStyles[variant],
           sizeStyles[size],
           className,
@@ -42,7 +43,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
         disabled={isDisabled}
         {...props}
       >
-        {loading ? "…" : children}
+        {loading ? "..." : children}
       </button>
     );
   },

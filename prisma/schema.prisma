@@ -41,7 +41,7 @@ enum AuditAction {
 }
 
 model User {
-  id            String   @id @default(cuid())
+  id            Int      @id @default(autoincrement())
   name          String   @unique // логин (имя без фамилии)
   passwordHash  String
 
@@ -67,7 +67,7 @@ model User {
 }
 
 model Service {
-  id                String   @id @default(cuid())
+  id                Int      @id @default(autoincrement())
   name              String   @unique
   defaultPriceCents Int
   isActive          Boolean  @default(true)
@@ -80,7 +80,7 @@ model Service {
 }
 
 model Order {
-  id           String      @id @default(cuid())
+  id           Int         @id @default(autoincrement())
   title        String
   guitarSerial String?
   description  String?
@@ -94,7 +94,7 @@ model Order {
   invoiceTotalCents  Int @default(0) // labor + parts
   orderExpensesCents Int @default(0) // DEPRECATED: в текущей версии всегда 0
 
-  createdById  String?
+  createdById  Int?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
@@ -113,9 +113,9 @@ model Order {
 }
 
 model OrderWork {
-  id        String   @id @default(cuid())
-  orderId   String
-  serviceId String?  // null = кастомная работа вне каталога
+  id        Int      @id @default(autoincrement())
+  orderId   Int
+  serviceId Int?     // null = кастомная работа вне каталога
 
   // snapshot услуги/работы в заказе
   serviceName    String
@@ -123,7 +123,7 @@ model OrderWork {
   quantity       Int      @default(1)
 
   // исполнитель конкретной работы
-  performerId String
+  performerId Int
 
   // snapshot комиссии на момент назначения/создания строки
   commissionPctSnapshot   Int
@@ -143,8 +143,8 @@ model OrderWork {
 }
 
 model OrderPart {
-  id        String   @id @default(cuid())
-  orderId   String
+  id        Int      @id @default(autoincrement())
+  orderId   Int
 
   name           String
   unitPriceCents Int
@@ -163,13 +163,13 @@ model OrderPart {
 }
 
 model Expense {
-  id          String   @id @default(cuid())
-  orderId     String?  // DEPRECATED: расходы по заказу отключены, должно быть null
+  id          Int      @id @default(autoincrement())
+  orderId     Int?     // DEPRECATED: расходы по заказу отключены, должно быть null
   title       String
   amountCents Int
   expenseDate DateTime @default(now())
 
-  createdById String
+  createdById Int
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -182,9 +182,9 @@ model Expense {
 }
 
 model OrderComment {
-  id        String   @id @default(cuid())
-  orderId   String
-  authorId  String
+  id        Int      @id @default(autoincrement())
+  orderId   Int
+  authorId  Int
   text      String
 
   createdAt DateTime @default(now())
@@ -198,12 +198,12 @@ model OrderComment {
 }
 
 model AuditLog {
-  id        String      @id @default(cuid())
-  actorId   String
+  id        Int         @id @default(autoincrement())
+  actorId   Int
   action    AuditAction
   entity    AuditEntity
-  entityId  String
-  orderId   String?
+  entityId  Int
+  orderId   Int?
 
   diff      Json?       // before/after или patch (как решим в коде)
   createdAt DateTime    @default(now())

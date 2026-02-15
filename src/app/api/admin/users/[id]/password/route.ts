@@ -2,6 +2,7 @@ import { Prisma, AuditAction, AuditEntity } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin, requireSession } from "@/lib/auth/guards";
 import { httpError, toHttpError } from "@/lib/http/errors";
+import { parseRouteInt } from "@/lib/http/ids";
 import { writeAudit } from "@/lib/audit/writeAudit";
 import { hashPassword } from "@/lib/auth/password";
 import { resetPasswordBodySchema } from "@/lib/admin/users.schema";
@@ -12,7 +13,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     const routeParams = await params;
     requireAdmin(session);
 
-    const { id } = routeParams;
+    const id = parseRouteInt(routeParams.id, "id");
 
     const json = await req.json().catch(() => null);
     const parsed = resetPasswordBodySchema.safeParse(json);
