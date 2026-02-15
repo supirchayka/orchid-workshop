@@ -82,18 +82,8 @@ type OrderDetailsResponse = {
     laborSubtotalCents: number;
     partsSubtotalCents: number;
     invoiceTotalCents: number;
-    orderExpensesCents: number;
     works: WorkItem[];
     parts: PartItem[];
-    expenses: Array<{
-      id: string;
-      title: string;
-      amountCents: number;
-      expenseDate: string;
-      createdById: string;
-      createdBy: { id: string; name: string };
-      createdAt: string;
-    }>;
     comments: Array<{
       id: string;
       text: string;
@@ -274,22 +264,6 @@ export function OrderDetailsClient({ orderId }: { orderId: string }): React.JSX.
   const [editPartLoading, setEditPartLoading] = React.useState(false);
 
   const [deletePartId, setDeletePartId] = React.useState<string | null>(null);
-  const [createExpenseSheetOpen, setCreateExpenseSheetOpen] = React.useState(false);
-  const [createExpenseTitle, setCreateExpenseTitle] = React.useState("");
-  const [createExpenseAmountRub, setCreateExpenseAmountRub] = React.useState("");
-  const [createExpenseDate, setCreateExpenseDate] = React.useState("");
-  const [createExpenseError, setCreateExpenseError] = React.useState<string | null>(null);
-  const [createExpenseLoading, setCreateExpenseLoading] = React.useState(false);
-
-  const [editExpenseSheetOpen, setEditExpenseSheetOpen] = React.useState(false);
-  const [editingExpense, setEditingExpense] = React.useState<OrderDetailsResponse["order"]["expenses"][number] | null>(null);
-  const [editExpenseTitle, setEditExpenseTitle] = React.useState("");
-  const [editExpenseAmountRub, setEditExpenseAmountRub] = React.useState("");
-  const [editExpenseDate, setEditExpenseDate] = React.useState("");
-  const [editExpenseError, setEditExpenseError] = React.useState<string | null>(null);
-  const [editExpenseLoading, setEditExpenseLoading] = React.useState(false);
-
-  const [deleteExpenseId, setDeleteExpenseId] = React.useState<string | null>(null);
   const [newCommentText, setNewCommentText] = React.useState("");
   const [createCommentError, setCreateCommentError] = React.useState<string | null>(null);
   const [createCommentLoading, setCreateCommentLoading] = React.useState(false);
@@ -704,138 +678,6 @@ export function OrderDetailsClient({ orderId }: { orderId: string }): React.JSX.
       setDeletePartId(null);
     }
   };
-
-  const resetCreateExpenseForm = React.useCallback(() => {
-    setCreateExpenseTitle("");
-    setCreateExpenseAmountRub("");
-    setCreateExpenseDate("");
-    setCreateExpenseError(null);
-  }, []);
-
-  React.useEffect(() => {
-    if (createExpenseSheetOpen) {
-      resetCreateExpenseForm();
-    }
-  }, [createExpenseSheetOpen, resetCreateExpenseForm]);
-
-  const canManageExpense = React.useCallback(
-    (expense: OrderDetailsResponse["order"]["expenses"][number]) => {
-      if (!me) return false;
-      return me.isAdmin || expense.createdById === me.id;
-    },
-    [me],
-  );
-
-  const onCreateExpense = async (event: React.FormEvent<HTMLFormElement>): Promise<void> => {
-    event.preventDefault();
-    if (!data) return;
-
-    let amountCents: number;
-
-    try {
-      amountCents = parseRubToCents(createExpenseAmountRub);
-    } catch {
-      setCreateExpenseError("Проверьте сумму");
-      return;
-    }
-
-    if (!createExpenseTitle.trim()) {
-      setCreateExpenseError("Укажите название расхода");
-      return;
-    }
-
-    setCreateExpenseLoading(true);
-    setCreateExpenseError(null);
-
-    try {
-      await apiPost<{ ok: true }>(`/api/orders/${data.id}/expenses`, {
-        title: createExpenseTitle.trim(),
-        amountCents,
-        ...(createExpenseDate ? { expenseDate: createExpenseDate } : {}),
-      });
-
-      await refreshOrder();
-      showToast("Добавлено");
-      setCreateExpenseSheetOpen(false);
-    } catch (error) {
-      const message = getErrorMessage(error);
-      setCreateExpenseError(message);
-      showToast(message, "error");
-    } finally {
-      setCreateExpenseLoading(false);
-    }
-  };
-
-  const openEditExpenseSheet = (expense: OrderDetailsResponse["order"]["expenses"][number]): void => {
-    setEditingExpense(expense);
-    setEditExpenseTitle(expense.title);
-    setEditExpenseAmountRub(centsToRubInput(expense.amountCents));
-    setEditExpenseDate(expense.expenseDate.slice(0, 10));
-    setEditExpenseError(null);
-    setEditExpenseSheetOpen(true);
-  };
-
-  const onEditExpense = async (event: React.FormEvent<HTMLFormElement>): Promise<void> => {
-    event.preventDefault();
-
-    if (!data || !editingExpense) return;
-
-    let amountCents: number;
-
-    try {
-      amountCents = parseRubToCents(editExpenseAmountRub);
-    } catch {
-      setEditExpenseError("Проверьте сумму");
-      return;
-    }
-
-    if (!editExpenseTitle.trim()) {
-      setEditExpenseError("Укажите название расхода");
-      return;
-    }
-
-    setEditExpenseLoading(true);
-    setEditExpenseError(null);
-
-    try {
-      await apiPatch<{ ok: true }>(`/api/orders/${data.id}/expenses/${editingExpense.id}`, {
-        title: editExpenseTitle.trim(),
-        amountCents,
-        expenseDate: editExpenseDate,
-      });
-
-      await refreshOrder();
-      showToast("Сохранено");
-      setEditExpenseSheetOpen(false);
-      setEditingExpense(null);
-    } catch (error) {
-      const message = getErrorMessage(error);
-      setEditExpenseError(message);
-      showToast(message, "error");
-    } finally {
-      setEditExpenseLoading(false);
-    }
-  };
-
-  const onDeleteExpense = async (expense: OrderDetailsResponse["order"]["expenses"][number]): Promise<void> => {
-    if (!data) return;
-    if (!window.confirm("Удалить расход?")) return;
-
-    setDeleteExpenseId(expense.id);
-
-    try {
-      await apiDelete<{ ok: true }>(`/api/orders/${data.id}/expenses/${expense.id}`);
-      await refreshOrder();
-      showToast("Удалено");
-    } catch (error) {
-      const message = getErrorMessage(error);
-      setError(message);
-      showToast(message, "error");
-    } finally {
-      setDeleteExpenseId(null);
-    }
-  };
-
   const onCreateComment = async (event: React.FormEvent<HTMLFormElement>): Promise<void> => {
     event.preventDefault();
 
@@ -990,8 +832,7 @@ export function OrderDetailsClient({ orderId }: { orderId: string }): React.JSX.
       <Tabs defaultValue="works">
         <TabsList>
           <TabsTrigger value="works">Работы</TabsTrigger>
-          <TabsTrigger value="parts">Запчасти</TabsTrigger>
-          <TabsTrigger value="expenses">Расходы</TabsTrigger>
+          <TabsTrigger value="parts">Запчасти</TabsTrigger>
           <TabsTrigger value="comments">Комментарии</TabsTrigger>
           <TabsTrigger value="audit">Лог</TabsTrigger>
         </TabsList>
@@ -1221,101 +1062,6 @@ export function OrderDetailsClient({ orderId }: { orderId: string }): React.JSX.
           </Card>
         </TabsContent>
 
-        <TabsContent value="expenses">
-          <Card className="space-y-3">
-            <div className="flex items-center justify-between gap-3">
-              <p className="text-xs text-[var(--muted-2)]">Режим: {isLocked ? "только чтение (оплачено)" : "редактирование"}</p>
-              <Sheet open={createExpenseSheetOpen} onOpenChange={setCreateExpenseSheetOpen}>
-                <SheetTrigger asChild>
-                  <Button size="sm" disabled={isLocked}>
-                    Добавить расход
-                  </Button>
-                </SheetTrigger>
-                <SheetContent side="bottom" className="max-h-[90vh] overflow-y-auto">
-                  <form className="space-y-3" onSubmit={onCreateExpense}>
-                    <SheetHeader>
-                      <SheetTitle>Добавить расход</SheetTitle>
-                    </SheetHeader>
-
-                    <div>
-                      <Label htmlFor="create-expense-title">Название</Label>
-                      <Input id="create-expense-title" value={createExpenseTitle} onChange={(event) => setCreateExpenseTitle(event.target.value)} maxLength={160} required />
-                    </div>
-
-                    <div>
-                      <Label htmlFor="create-expense-amount">Сумма (руб)</Label>
-                      <Input
-                        id="create-expense-amount"
-                        type="number"
-                        min={0.01}
-                        step="0.01"
-                        value={createExpenseAmountRub}
-                        onChange={(event) => setCreateExpenseAmountRub(event.target.value)}
-                        required
-                      />
-                    </div>
-
-                    <div>
-                      <Label htmlFor="create-expense-date">Дата расхода</Label>
-                      <Input id="create-expense-date" type="date" value={createExpenseDate} onChange={(event) => setCreateExpenseDate(event.target.value)} />
-                    </div>
-
-                    {createExpenseError ? <ErrorText>{createExpenseError}</ErrorText> : null}
-
-                    <SheetFooter>
-                      <Button type="button" variant="ghost" onClick={() => setCreateExpenseSheetOpen(false)} disabled={createExpenseLoading}>
-                        Отмена
-                      </Button>
-                      <Button type="submit" loading={createExpenseLoading}>
-                        Добавить
-                      </Button>
-                    </SheetFooter>
-                  </form>
-                </SheetContent>
-              </Sheet>
-            </div>
-
-            <div className="rounded-[14px] border border-white/10 bg-[var(--surface)] px-3 py-2 text-sm">
-              <p className="text-[var(--muted)]">Итого расходов по заказу: {formatRub(data.orderExpensesCents)}</p>
-            </div>
-
-            {data.expenses.length === 0 ? (
-              <p className="text-sm text-[var(--muted)]">Нет расходов</p>
-            ) : (
-              data.expenses.map((expense) => {
-                const canManage = canManageExpense(expense);
-
-                return (
-                  <div key={expense.id} className="rounded-[14px] border border-white/10 bg-[var(--surface)] px-3 py-2 text-sm">
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="font-medium text-[var(--text)]">{expense.title}</p>
-                        <p className="text-xs text-[var(--muted)]">Добавил: {expense.createdBy.name}</p>
-                        <p className="mt-1 text-xs text-[var(--muted-2)]">{formatDateTime(expense.expenseDate)}</p>
-                      </div>
-                      <div className="flex gap-2">
-                        <Button size="sm" variant="secondary" onClick={() => openEditExpenseSheet(expense)} disabled={isLocked || !canManage}>
-                          Изменить
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="danger"
-                          onClick={() => void onDeleteExpense(expense)}
-                          disabled={isLocked || !canManage || deleteExpenseId === expense.id}
-                          loading={deleteExpenseId === expense.id}
-                        >
-                          Удалить
-                        </Button>
-                      </div>
-                    </div>
-                    <p className="mt-2 text-xs text-[var(--muted)]">Сумма: {formatRub(expense.amountCents)}</p>
-                  </div>
-                );
-              })
-            )}
-          </Card>
-        </TabsContent>
-
         <TabsContent value="comments">
           <Card className="space-y-3">
             <form className="space-y-2 rounded-[14px] border border-white/10 bg-[var(--surface)] p-3" onSubmit={onCreateComment}>
@@ -1524,59 +1270,6 @@ export function OrderDetailsClient({ orderId }: { orderId: string }): React.JSX.
                 Отмена
               </Button>
               <Button type="submit" loading={editLoading}>
-                Сохранить
-              </Button>
-            </SheetFooter>
-          </form>
-        </SheetContent>
-      </Sheet>
-
-      <Sheet
-        open={editExpenseSheetOpen}
-        onOpenChange={(open) => {
-          setEditExpenseSheetOpen(open);
-          if (!open) {
-            setEditingExpense(null);
-            setEditExpenseError(null);
-          }
-        }}
-      >
-        <SheetContent side="bottom" className="max-h-[90vh] overflow-y-auto">
-          <form className="space-y-3" onSubmit={onEditExpense}>
-            <SheetHeader>
-              <SheetTitle>Редактировать расход</SheetTitle>
-            </SheetHeader>
-
-            <div>
-              <Label htmlFor="edit-expense-title">Название</Label>
-              <Input id="edit-expense-title" value={editExpenseTitle} onChange={(event) => setEditExpenseTitle(event.target.value)} maxLength={160} required />
-            </div>
-
-            <div>
-              <Label htmlFor="edit-expense-amount">Сумма (руб)</Label>
-              <Input
-                id="edit-expense-amount"
-                type="number"
-                min={0.01}
-                step="0.01"
-                value={editExpenseAmountRub}
-                onChange={(event) => setEditExpenseAmountRub(event.target.value)}
-                required
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="edit-expense-date">Дата расхода</Label>
-              <Input id="edit-expense-date" type="date" value={editExpenseDate} onChange={(event) => setEditExpenseDate(event.target.value)} required />
-            </div>
-
-            {editExpenseError ? <ErrorText>{editExpenseError}</ErrorText> : null}
-
-            <SheetFooter>
-              <Button type="button" variant="ghost" onClick={() => setEditExpenseSheetOpen(false)} disabled={editExpenseLoading}>
-                Отмена
-              </Button>
-              <Button type="submit" loading={editExpenseLoading}>
                 Сохранить
               </Button>
             </SheetFooter>

@@ -92,7 +92,7 @@ model Order {
   laborSubtotalCents Int @default(0) // сумма работ (для дохода/комиссий)
   partsSubtotalCents Int @default(0) // сумма запчастей (для клиента)
   invoiceTotalCents  Int @default(0) // labor + parts
-  orderExpensesCents Int @default(0) // сумма расходов, привязанных к заказу (внутренние)
+  orderExpensesCents Int @default(0) // DEPRECATED: в текущей версии всегда 0
 
   createdById  String?
   createdAt    DateTime @default(now())
@@ -164,7 +164,7 @@ model OrderPart {
 
 model Expense {
   id          String   @id @default(cuid())
-  orderId     String?  // null = общий расход мастерской
+  orderId     String?  // DEPRECATED: расходы по заказу отключены, должно быть null
   title       String
   amountCents Int
   expenseDate DateTime @default(now())

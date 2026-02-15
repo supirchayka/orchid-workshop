@@ -21,7 +21,6 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
         laborSubtotalCents: true,
         partsSubtotalCents: true,
         invoiceTotalCents: true,
-        orderExpensesCents: true,
         works: {
           orderBy: { createdAt: "asc" },
           select: {
@@ -59,25 +58,6 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
             unitPriceCents: true,
             quantity: true,
             costCents: true,
-            createdAt: true,
-            updatedAt: true,
-          },
-        },
-        expenses: {
-          orderBy: [{ expenseDate: "desc" }, { createdAt: "desc" }],
-          select: {
-            id: true,
-            orderId: true,
-            title: true,
-            amountCents: true,
-            expenseDate: true,
-            createdById: true,
-            createdBy: {
-              select: {
-                id: true,
-                name: true,
-              },
-            },
             createdAt: true,
             updatedAt: true,
           },

@@ -56,7 +56,7 @@ export function Sheet({ open, defaultOpen = false, onOpenChange, children }: She
   return <SheetContext.Provider value={{ open: isOpen, setOpen }}>{children}</SheetContext.Provider>;
 }
 
-interface SheetTriggerProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+interface SheetTriggerProps extends Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, "children"> {
   asChild?: boolean;
   children: React.ReactNode | ((controls: { open: boolean; setOpen: (open: boolean) => void }) => React.ReactNode);
 }

@@ -41,13 +41,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       newStatus,
     });
 
-    let nextPaidAt = order.paidAt;
-
-    if (newStatus === OrderStatus.PAID) {
-      nextPaidAt = new Date();
-    } else if (order.status === OrderStatus.PAID && newStatus !== OrderStatus.PAID) {
-      nextPaidAt = null;
-    }
+    const nextPaidAt = newStatus === OrderStatus.PAID ? new Date() : null;
 
     const updatedOrder = await prisma.order.update({
       where: { id: order.id },

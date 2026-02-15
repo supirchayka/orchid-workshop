@@ -156,7 +156,8 @@ export async function GET(req: Request) {
         prisma.$queryRaw<{ cents: bigint | number | null }[]>(Prisma.sql`
           SELECT COALESCE(SUM(e."amountCents"), 0)::bigint AS cents
           FROM "Expense" e
-          WHERE e."expenseDate" >= ${fromDate}
+          WHERE e."orderId" IS NULL
+            AND e."expenseDate" >= ${fromDate}
             AND e."expenseDate" < ${toDateExclusive}
         `),
         prisma.$queryRaw<BucketRow[]>(Prisma.sql`
@@ -187,7 +188,8 @@ export async function GET(req: Request) {
             date_trunc(${bucket}::text, e."expenseDate") AS "bucketStart",
             COALESCE(SUM(e."amountCents"), 0)::bigint AS cents
           FROM "Expense" e
-          WHERE e."expenseDate" >= ${fromDate}
+          WHERE e."orderId" IS NULL
+            AND e."expenseDate" >= ${fromDate}
             AND e."expenseDate" < ${toDateExclusive}
           GROUP BY 1
           ORDER BY 1
