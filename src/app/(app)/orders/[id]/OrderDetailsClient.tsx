@@ -75,6 +75,8 @@ type OrderDetailsResponse = {
     title: string;
     guitarSerial: string | null;
     description: string | null;
+    customerName: string | null;
+    customerPhone: string | null;
     status: OrderStatus;
     paidAt: string | null;
     createdAt: string;
@@ -226,6 +228,14 @@ export function OrderDetailsClient({ orderId }: { orderId: number }): React.JSX.
   const [nextStatus, setNextStatus] = React.useState<OrderStatus | null>(null);
   const [statusError, setStatusError] = React.useState<string | null>(null);
   const [statusLoading, setStatusLoading] = React.useState(false);
+  const [editOrderSheetOpen, setEditOrderSheetOpen] = React.useState(false);
+  const [editOrderTitle, setEditOrderTitle] = React.useState("");
+  const [editOrderCustomerName, setEditOrderCustomerName] = React.useState("");
+  const [editOrderCustomerPhone, setEditOrderCustomerPhone] = React.useState("");
+  const [editOrderGuitarSerial, setEditOrderGuitarSerial] = React.useState("");
+  const [editOrderDescription, setEditOrderDescription] = React.useState("");
+  const [editOrderError, setEditOrderError] = React.useState<string | null>(null);
+  const [editOrderLoading, setEditOrderLoading] = React.useState(false);
 
   const [createSheetOpen, setCreateSheetOpen] = React.useState(false);
   const [createMode, setCreateMode] = React.useState<WorkMode>("from-service");
@@ -395,6 +405,50 @@ export function OrderDetailsClient({ orderId }: { orderId: number }): React.JSX.
       showToast(message, "error");
     } finally {
       setStatusLoading(false);
+    }
+  };
+
+  const hydrateEditOrderForm = (order: OrderDetailsResponse["order"]): void => {
+    setEditOrderTitle(order.title);
+    setEditOrderCustomerName(order.customerName ?? "");
+    setEditOrderCustomerPhone(order.customerPhone ?? "");
+    setEditOrderGuitarSerial(order.guitarSerial ?? "");
+    setEditOrderDescription(order.description ?? "");
+    setEditOrderError(null);
+  };
+
+  const onEditOrder = async (event: React.FormEvent<HTMLFormElement>): Promise<void> => {
+    event.preventDefault();
+    if (!data || !me?.isAdmin) return;
+
+    const cleanTitle = editOrderTitle.trim();
+    if (!cleanTitle) {
+      setEditOrderError("Введите название заказа");
+      return;
+    }
+
+    setEditOrderLoading(true);
+    setEditOrderError(null);
+
+    try {
+      await apiPatch<{ ok: true }>(`/api/orders/${data.id}`, {
+        title: cleanTitle,
+        customerName: editOrderCustomerName,
+        customerPhone: editOrderCustomerPhone,
+        guitarSerial: editOrderGuitarSerial,
+        description: editOrderDescription,
+      });
+
+      const refreshedOrder = await refreshOrder();
+      showToast("Сохранено");
+      setEditOrderSheetOpen(false);
+      setNextStatus(refreshedOrder.status);
+    } catch (error) {
+      const message = getErrorMessage(error);
+      setEditOrderError(message);
+      showToast(message, "error");
+    } finally {
+      setEditOrderLoading(false);
     }
   };
 
@@ -734,6 +788,12 @@ export function OrderDetailsClient({ orderId }: { orderId: number }): React.JSX.
 
   const isLocked = isPaidLocked(data);
   const cannotChangeStatus = isLocked && !me.isAdmin;
+  const cannotEditOrder = isLocked || !me.isAdmin;
+  const editOrderDisabledTitle = isLocked
+    ? "Оплаченный заказ нельзя редактировать"
+    : !me.isAdmin
+      ? "Только админ может редактировать заказ"
+      : undefined;
 
   return (
     <section className="space-y-4">
@@ -815,6 +875,95 @@ export function OrderDetailsClient({ orderId }: { orderId: number }): React.JSX.
                 </SheetFooter>
               </SheetContent>
             </Sheet>
+
+            <Sheet
+              open={editOrderSheetOpen}
+              onOpenChange={(open) => {
+                setEditOrderSheetOpen(open);
+                if (open) {
+                  hydrateEditOrderForm(data);
+                } else {
+                  setEditOrderError(null);
+                }
+              }}
+            >
+              <SheetTrigger asChild>
+                <Button variant="secondary" size="sm" disabled={cannotEditOrder} title={editOrderDisabledTitle}>
+                  Редактировать заказ
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="bottom" className="max-h-[90vh] overflow-y-auto">
+                <form className="space-y-3" onSubmit={onEditOrder}>
+                  <SheetHeader>
+                    <SheetTitle>Редактировать заказ</SheetTitle>
+                  </SheetHeader>
+
+                  <div>
+                    <Label htmlFor="edit-order-title">Название</Label>
+                    <Input
+                      id="edit-order-title"
+                      value={editOrderTitle}
+                      onChange={(event) => setEditOrderTitle(event.target.value)}
+                      maxLength={80}
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="edit-order-customer-name">Заказчик</Label>
+                    <Input
+                      id="edit-order-customer-name"
+                      value={editOrderCustomerName}
+                      onChange={(event) => setEditOrderCustomerName(event.target.value)}
+                      maxLength={120}
+                    />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="edit-order-customer-phone">Телефон</Label>
+                    <Input
+                      id="edit-order-customer-phone"
+                      type="tel"
+                      value={editOrderCustomerPhone}
+                      onChange={(event) => setEditOrderCustomerPhone(event.target.value)}
+                      maxLength={32}
+                    />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="edit-order-serial">Серийный номер</Label>
+                    <Input
+                      id="edit-order-serial"
+                      value={editOrderGuitarSerial}
+                      onChange={(event) => setEditOrderGuitarSerial(event.target.value)}
+                      maxLength={80}
+                    />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="edit-order-description">Описание</Label>
+                    <TextArea
+                      id="edit-order-description"
+                      value={editOrderDescription}
+                      onChange={(event) => setEditOrderDescription(event.target.value)}
+                      rows={5}
+                      maxLength={2000}
+                    />
+                  </div>
+
+                  {editOrderError ? <ErrorText>{editOrderError}</ErrorText> : null}
+
+                  <SheetFooter>
+                    <Button type="button" variant="ghost" onClick={() => setEditOrderSheetOpen(false)} disabled={editOrderLoading}>
+                      Отмена
+                    </Button>
+                    <Button type="submit" loading={editOrderLoading}>
+                      Сохранить
+                    </Button>
+                  </SheetFooter>
+                </form>
+              </SheetContent>
+            </Sheet>
           </div>
         </CardHeader>
 
@@ -822,6 +971,9 @@ export function OrderDetailsClient({ orderId }: { orderId: number }): React.JSX.
           <p className="text-[var(--muted)]">Работы: {formatRub(data.laborSubtotalCents)}</p>
           <p className="text-[var(--muted)]">Запчасти: {formatRub(data.partsSubtotalCents)}</p>
           <p className="font-medium text-[var(--text)]">К оплате: {formatRub(data.invoiceTotalCents)}</p>
+          {data.customerName ? <p className="text-[var(--muted)]">{"\u0417\u0430\u043a\u0430\u0437\u0447\u0438\u043a"}: {data.customerName}</p> : null}
+          {data.customerPhone ? <p className="text-[var(--muted)]">{"\u0422\u0435\u043b\u0435\u0444\u043e\u043d"}: {data.customerPhone}</p> : null}
+          {data.description ? <p className="whitespace-pre-wrap text-[var(--muted)]">{"\u041e\u043f\u0438\u0441\u0430\u043d\u0438\u0435"}: {data.description}</p> : null}
           {data.paidAt ? <p className="text-[var(--muted)]">Оплачен: {formatDateTime(data.paidAt)}</p> : null}
         </CardContent>
       </Card>

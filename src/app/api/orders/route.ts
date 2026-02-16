@@ -11,6 +11,13 @@ const createOrderBodySchema = z.object({
   title: z.string().trim().min(1, "Укажите название").max(80, "Максимум 80 символов"),
   guitarSerial: z.string().trim().max(80, "Максимум 80 символов").optional(),
   description: z.string().trim().max(2000, "Максимум 2000 символов").optional(),
+  customerName: z.string().trim().max(120, "Максимум 120 символов").optional(),
+  customerPhone: z
+    .string()
+    .trim()
+    .max(32, "Максимум 32 символа")
+    .refine((value) => value.length === 0 || /^[0-9()+\-\s]+$/u.test(value), "Телефон может содержать только цифры и символы +() -")
+    .optional(),
 });
 
 export async function GET(req: Request) {
@@ -33,6 +40,9 @@ export async function GET(req: Request) {
             OR: [
               { title: { contains: q, mode: "insensitive" } },
               { guitarSerial: { contains: q, mode: "insensitive" } },
+              { description: { contains: q, mode: "insensitive" } },
+              { customerName: { contains: q, mode: "insensitive" } },
+              { customerPhone: { contains: q, mode: "insensitive" } },
             ],
           }
         : {}),
@@ -47,6 +57,9 @@ export async function GET(req: Request) {
         id: true,
         title: true,
         guitarSerial: true,
+        description: true,
+        customerName: true,
+        customerPhone: true,
         status: true,
         paidAt: true,
         updatedAt: true,
@@ -75,6 +88,9 @@ export async function GET(req: Request) {
         id: order.id,
         title: order.title,
         guitarSerial: order.guitarSerial,
+        description: order.description,
+        customerName: order.customerName,
+        customerPhone: order.customerPhone,
         status: order.status,
         paidAt: order.paidAt,
         updatedAt: order.updatedAt,
@@ -109,12 +125,16 @@ export async function POST(req: Request) {
     const title = parsed.data.title;
     const guitarSerial = parsed.data.guitarSerial || null;
     const description = parsed.data.description || null;
+    const customerName = parsed.data.customerName || null;
+    const customerPhone = parsed.data.customerPhone || null;
 
     const order = await prisma.order.create({
       data: {
         title,
         guitarSerial,
         description,
+        customerName,
+        customerPhone,
         status: OrderStatus.NEW,
         createdById: session.userId,
       },
@@ -123,6 +143,8 @@ export async function POST(req: Request) {
         title: true,
         guitarSerial: true,
         description: true,
+        customerName: true,
+        customerPhone: true,
         status: true,
       },
     });
@@ -139,6 +161,8 @@ export async function POST(req: Request) {
           title: order.title,
           guitarSerial: order.guitarSerial,
           description: order.description,
+          customerName: order.customerName,
+          customerPhone: order.customerPhone,
           status: OrderStatus.NEW,
         },
       } as Prisma.InputJsonValue,

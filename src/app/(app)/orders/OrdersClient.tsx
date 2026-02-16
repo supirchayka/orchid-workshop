@@ -20,6 +20,9 @@ type OrderListItem = {
   id: number;
   title: string;
   guitarSerial: string | null;
+  description: string | null;
+  customerName: string | null;
+  customerPhone: string | null;
   status: OrderStatus;
   paidAt: string | null;
   updatedAt: string;
@@ -56,6 +59,8 @@ export function OrdersClient(): React.JSX.Element {
 
   const [createOpen, setCreateOpen] = React.useState(false);
   const [title, setTitle] = React.useState("");
+  const [customerName, setCustomerName] = React.useState("");
+  const [customerPhone, setCustomerPhone] = React.useState("");
   const [guitarSerial, setGuitarSerial] = React.useState("");
   const [description, setDescription] = React.useState("");
   const [createLoading, setCreateLoading] = React.useState(false);
@@ -112,12 +117,16 @@ export function OrdersClient(): React.JSX.Element {
     try {
       const data = await apiPost<{ ok: true; order: { id: number } }>("/api/orders", {
         title: cleanTitle,
+        customerName,
+        customerPhone,
         guitarSerial,
         description,
       });
 
       setCreateOpen(false);
       setTitle("");
+      setCustomerName("");
+      setCustomerPhone("");
       setGuitarSerial("");
       setDescription("");
       showToast("Добавлено");
@@ -153,6 +162,29 @@ export function OrdersClient(): React.JSX.Element {
                   onChange={(event) => setTitle(event.target.value)}
                   placeholder="Например: Fender Stratocaster"
                   required
+                />
+              </div>
+
+              <div className="space-y-1">
+                <Label htmlFor="create-order-customer-name">Заказчик</Label>
+                <Input
+                  id="create-order-customer-name"
+                  value={customerName}
+                  onChange={(event) => setCustomerName(event.target.value)}
+                  placeholder="Имя клиента"
+                  maxLength={120}
+                />
+              </div>
+
+              <div className="space-y-1">
+                <Label htmlFor="create-order-customer-phone">Телефон</Label>
+                <Input
+                  id="create-order-customer-phone"
+                  type="tel"
+                  value={customerPhone}
+                  onChange={(event) => setCustomerPhone(event.target.value)}
+                  placeholder="+7 900 123-45-67"
+                  maxLength={32}
                 />
               </div>
 
@@ -198,7 +230,7 @@ export function OrdersClient(): React.JSX.Element {
               id="orders-search"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              placeholder="Поиск по названию или серийному номеру"
+              placeholder="Поиск по названию, клиенту, телефону, описанию или серийному номеру"
             />
           </div>
 
@@ -270,6 +302,9 @@ export function OrdersClient(): React.JSX.Element {
           const comment = order.lastComment
             ? `${order.lastComment.authorName}: ${order.lastComment.text.replace(/\s+/gu, " ").trim()}`
             : null;
+          const normalizedDescription = order.description?.replace(/\s+/gu, " ").trim() ?? "";
+          const descriptionPreview =
+            normalizedDescription.length > 140 ? `${normalizedDescription.slice(0, 140)}…` : normalizedDescription;
 
           return (
             <Link key={order.id} href={`/orders/${order.id}`} className="block">
@@ -284,6 +319,15 @@ export function OrdersClient(): React.JSX.Element {
                     </CardTitle>
                     {order.guitarSerial ? (
                       <p className="mt-1 truncate text-xs text-[var(--muted)]">S/N: {order.guitarSerial}</p>
+                    ) : null}
+                    {order.customerName ? (
+                      <p className="mt-1 truncate text-xs text-[var(--muted)]">Заказчик: {order.customerName}</p>
+                    ) : null}
+                    {order.customerPhone ? (
+                      <p className="mt-1 truncate text-xs text-[var(--muted)]">Телефон: {order.customerPhone}</p>
+                    ) : null}
+                    {descriptionPreview ? (
+                      <p className="mt-1 text-xs text-[var(--muted)]">{descriptionPreview}</p>
                     ) : null}
                   </div>
                   <OrderStatusBadge status={order.status} />
@@ -305,4 +349,3 @@ export function OrdersClient(): React.JSX.Element {
     </section>
   );
 }
-

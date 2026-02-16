@@ -84,6 +84,8 @@ model Order {
   title        String
   guitarSerial String?
   description  String?
+  customerName String?
+  customerPhone String?
 
   status       OrderStatus @default(NEW)
   paidAt       DateTime?
